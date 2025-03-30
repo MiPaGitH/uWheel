@@ -1,0 +1,491 @@
+ARM GAS  /tmp/ccTHuVa3.s 			page 1
+
+
+   1              		.cpu cortex-m3
+   2              		.eabi_attribute 20, 1
+   3              		.eabi_attribute 21, 1
+   4              		.eabi_attribute 23, 3
+   5              		.eabi_attribute 24, 1
+   6              		.eabi_attribute 25, 1
+   7              		.eabi_attribute 26, 1
+   8              		.eabi_attribute 30, 6
+   9              		.eabi_attribute 34, 1
+  10              		.eabi_attribute 18, 4
+  11              		.file	"aSchTT.c"
+  12              		.text
+  13              	.Ltext0:
+  14              		.cfi_sections	.debug_frame
+  15              		.section	.text.aSchTTMng,"ax",%progbits
+  16              		.align	1
+  17              		.global	aSchTTMng
+  18              		.syntax unified
+  19              		.thumb
+  20              		.thumb_func
+  21              		.fpu softvfp
+  23              	aSchTTMng:
+  24              	.LFB0:
+  25              		.file 1 "Scheduler/aSchTT.c"
+   1:Scheduler/aSchTT.c **** /*
+   2:Scheduler/aSchTT.c ****  * aSchTT.c
+   3:Scheduler/aSchTT.c ****  *
+   4:Scheduler/aSchTT.c ****  *  Created on: Jul 24, 2013
+   5:Scheduler/aSchTT.c ****  *      Author: mircea.patras
+   6:Scheduler/aSchTT.c ****  */
+   7:Scheduler/aSchTT.c **** 
+   8:Scheduler/aSchTT.c **** #include "aSchTT.h"
+   9:Scheduler/aSchTT.c **** #include "application_tasks.h"
+  10:Scheduler/aSchTT.c **** #include "main.h"
+  11:Scheduler/aSchTT.c **** 
+  12:Scheduler/aSchTT.c **** /*defines*/
+  13:Scheduler/aSchTT.c **** 
+  14:Scheduler/aSchTT.c **** /*external variables*/
+  15:Scheduler/aSchTT.c **** 
+  16:Scheduler/aSchTT.c **** /*variables*/
+  17:Scheduler/aSchTT.c **** 
+  18:Scheduler/aSchTT.c **** /* Scheduler task manager / dispatcher
+  19:Scheduler/aSchTT.c ****  * Description:
+  20:Scheduler/aSchTT.c ****  * 		scheduler main function
+  21:Scheduler/aSchTT.c ****  * 		determines the task to be executed and starts it
+  22:Scheduler/aSchTT.c ****  * 		3 cases:
+  23:Scheduler/aSchTT.c ****  * 			no preemption: tasks run to completion
+  24:Scheduler/aSchTT.c ****  * 			preemption: the function runs the pending function even if it means to stop the current runni
+  25:Scheduler/aSchTT.c ****  * 			restore: if no more task's need to run searches for preempted tasks and runs them
+  26:Scheduler/aSchTT.c ****  */
+  27:Scheduler/aSchTT.c **** void aSchTTMng( void )
+  28:Scheduler/aSchTT.c **** {
+  26              		.loc 1 28 0
+  27              		.cfi_startproc
+  28              		@ args = 0, pretend = 0, frame = 8
+  29              		@ frame_needed = 1, uses_anonymous_args = 0
+  30 0000 80B5     		push	{r7, lr}
+ARM GAS  /tmp/ccTHuVa3.s 			page 2
+
+
+  31              	.LCFI0:
+  32              		.cfi_def_cfa_offset 8
+  33              		.cfi_offset 7, -8
+  34              		.cfi_offset 14, -4
+  35 0002 82B0     		sub	sp, sp, #8
+  36              	.LCFI1:
+  37              		.cfi_def_cfa_offset 16
+  38 0004 00AF     		add	r7, sp, #0
+  39              	.LCFI2:
+  40              		.cfi_def_cfa_register 7
+  29:Scheduler/aSchTT.c **** 	UINT8 TaskIndex = 0u;
+  41              		.loc 1 29 0
+  42 0006 0023     		movs	r3, #0
+  43 0008 FB71     		strb	r3, [r7, #7]
+  30:Scheduler/aSchTT.c **** 
+  31:Scheduler/aSchTT.c **** 	for (TaskIndex = 0u; TaskIndex < ASCHTTTASKS_NBOF_TASKS; TaskIndex++)
+  44              		.loc 1 31 0
+  45 000a 0023     		movs	r3, #0
+  46 000c FB71     		strb	r3, [r7, #7]
+  47 000e 67E0     		b	.L2
+  48              	.L4:
+  32:Scheduler/aSchTT.c **** 	{
+  33:Scheduler/aSchTT.c **** 
+  34:Scheduler/aSchTT.c **** 		if ( aSchTTDispTbl_Tasks[TaskIndex].Timer <= 0 )
+  49              		.loc 1 34 0
+  50 0010 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+  51 0012 3849     		ldr	r1, .L5
+  52 0014 1346     		mov	r3, r2
+  53 0016 5B00     		lsls	r3, r3, #1
+  54 0018 1344     		add	r3, r3, r2
+  55 001a 9B00     		lsls	r3, r3, #2
+  56 001c 0B44     		add	r3, r3, r1
+  57 001e 0433     		adds	r3, r3, #4
+  58 0020 B3F90030 		ldrsh	r3, [r3]
+  59 0024 002B     		cmp	r3, #0
+  60 0026 58DC     		bgt	.L3
+  35:Scheduler/aSchTT.c **** 		{
+  36:Scheduler/aSchTT.c **** 
+  37:Scheduler/aSchTT.c **** 			/*check if TASK is suspended*/
+  38:Scheduler/aSchTT.c **** 			if ( aSchTTDispTbl_Tasks[TaskIndex].State == ttSUSPENDED )
+  61              		.loc 1 38 0
+  62 0028 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+  63 002a 3249     		ldr	r1, .L5
+  64 002c 1346     		mov	r3, r2
+  65 002e 5B00     		lsls	r3, r3, #1
+  66 0030 1344     		add	r3, r3, r2
+  67 0032 9B00     		lsls	r3, r3, #2
+  68 0034 0B44     		add	r3, r3, r1
+  69 0036 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+  70 0038 002B     		cmp	r3, #0
+  71 003a 4ED1     		bne	.L3
+  39:Scheduler/aSchTT.c **** 			{
+  40:Scheduler/aSchTT.c **** 				/*set running flag*/
+  41:Scheduler/aSchTT.c **** 				aSchTTDispTbl_Tasks[TaskIndex].State = ttRUNNING;
+  72              		.loc 1 41 0
+  73 003c FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+  74 003e 2D49     		ldr	r1, .L5
+ARM GAS  /tmp/ccTHuVa3.s 			page 3
+
+
+  75 0040 1346     		mov	r3, r2
+  76 0042 5B00     		lsls	r3, r3, #1
+  77 0044 1344     		add	r3, r3, r2
+  78 0046 9B00     		lsls	r3, r3, #2
+  79 0048 0B44     		add	r3, r3, r1
+  80 004a 0222     		movs	r2, #2
+  81 004c 1A70     		strb	r2, [r3]
+  42:Scheduler/aSchTT.c **** 
+  43:Scheduler/aSchTT.c **** 				/*reload Timer*/
+  44:Scheduler/aSchTT.c **** 				aSchTTDispTbl_Tasks[TaskIndex].Timer = aSchTTDispTbl_Tasks[TaskIndex].Period;
+  82              		.loc 1 44 0
+  83 004e FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+  84 0050 2849     		ldr	r1, .L5
+  85 0052 1346     		mov	r3, r2
+  86 0054 5B00     		lsls	r3, r3, #1
+  87 0056 1344     		add	r3, r3, r2
+  88 0058 9B00     		lsls	r3, r3, #2
+  89 005a 0B44     		add	r3, r3, r1
+  90 005c 0233     		adds	r3, r3, #2
+  91 005e 1B88     		ldrh	r3, [r3]
+  92 0060 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+  93 0062 18B2     		sxth	r0, r3
+  94 0064 2349     		ldr	r1, .L5
+  95 0066 1346     		mov	r3, r2
+  96 0068 5B00     		lsls	r3, r3, #1
+  97 006a 1344     		add	r3, r3, r2
+  98 006c 9B00     		lsls	r3, r3, #2
+  99 006e 0B44     		add	r3, r3, r1
+ 100 0070 0433     		adds	r3, r3, #4
+ 101 0072 0246     		mov	r2, r0	@ movhi
+ 102 0074 1A80     		strh	r2, [r3]	@ movhi
+  45:Scheduler/aSchTT.c **** 
+  46:Scheduler/aSchTT.c **** 				/*run the task*/
+  47:Scheduler/aSchTT.c **** 				(*aSchTTDispTbl_Tasks[TaskIndex].TaskFunction)();
+ 103              		.loc 1 47 0
+ 104 0076 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 105 0078 1E49     		ldr	r1, .L5
+ 106 007a 1346     		mov	r3, r2
+ 107 007c 5B00     		lsls	r3, r3, #1
+ 108 007e 1344     		add	r3, r3, r2
+ 109 0080 9B00     		lsls	r3, r3, #2
+ 110 0082 0B44     		add	r3, r3, r1
+ 111 0084 0833     		adds	r3, r3, #8
+ 112 0086 1B68     		ldr	r3, [r3]
+ 113 0088 9847     		blx	r3
+ 114              	.LVL0:
+  48:Scheduler/aSchTT.c **** 
+  49:Scheduler/aSchTT.c **** 				/*task finished*/
+  50:Scheduler/aSchTT.c **** 				aSchTTDispTbl_Tasks[TaskIndex].State = ttSUSPENDED;
+ 115              		.loc 1 50 0
+ 116 008a FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 117 008c 1949     		ldr	r1, .L5
+ 118 008e 1346     		mov	r3, r2
+ 119 0090 5B00     		lsls	r3, r3, #1
+ 120 0092 1344     		add	r3, r3, r2
+ 121 0094 9B00     		lsls	r3, r3, #2
+ 122 0096 0B44     		add	r3, r3, r1
+ARM GAS  /tmp/ccTHuVa3.s 			page 4
+
+
+ 123 0098 0022     		movs	r2, #0
+ 124 009a 1A70     		strb	r2, [r3]
+  51:Scheduler/aSchTT.c **** 
+  52:Scheduler/aSchTT.c **** 				/*remove task if is not periodic (Period > 0)*/
+  53:Scheduler/aSchTT.c **** 				if ( 0 == aSchTTDispTbl_Tasks[TaskIndex].Period )
+ 125              		.loc 1 53 0
+ 126 009c FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 127 009e 1549     		ldr	r1, .L5
+ 128 00a0 1346     		mov	r3, r2
+ 129 00a2 5B00     		lsls	r3, r3, #1
+ 130 00a4 1344     		add	r3, r3, r2
+ 131 00a6 9B00     		lsls	r3, r3, #2
+ 132 00a8 0B44     		add	r3, r3, r1
+ 133 00aa 0233     		adds	r3, r3, #2
+ 134 00ac 1B88     		ldrh	r3, [r3]
+ 135 00ae 002B     		cmp	r3, #0
+ 136 00b0 13D1     		bne	.L3
+  54:Scheduler/aSchTT.c **** 				{/*task is of type OneShot*/
+  55:Scheduler/aSchTT.c **** 					/*remove the task from the dispatch table*/
+  56:Scheduler/aSchTT.c **** 					aSchTTDispTbl_Tasks[TaskIndex].TaskFunction = 0;
+ 137              		.loc 1 56 0
+ 138 00b2 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 139 00b4 0F49     		ldr	r1, .L5
+ 140 00b6 1346     		mov	r3, r2
+ 141 00b8 5B00     		lsls	r3, r3, #1
+ 142 00ba 1344     		add	r3, r3, r2
+ 143 00bc 9B00     		lsls	r3, r3, #2
+ 144 00be 0B44     		add	r3, r3, r1
+ 145 00c0 0833     		adds	r3, r3, #8
+ 146 00c2 0022     		movs	r2, #0
+ 147 00c4 1A60     		str	r2, [r3]
+  57:Scheduler/aSchTT.c **** 					aSchTTDispTbl_Tasks[TaskIndex].Timer = 1;
+ 148              		.loc 1 57 0
+ 149 00c6 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 150 00c8 0A49     		ldr	r1, .L5
+ 151 00ca 1346     		mov	r3, r2
+ 152 00cc 5B00     		lsls	r3, r3, #1
+ 153 00ce 1344     		add	r3, r3, r2
+ 154 00d0 9B00     		lsls	r3, r3, #2
+ 155 00d2 0B44     		add	r3, r3, r1
+ 156 00d4 0433     		adds	r3, r3, #4
+ 157 00d6 0122     		movs	r2, #1
+ 158 00d8 1A80     		strh	r2, [r3]	@ movhi
+ 159              	.L3:
+  31:Scheduler/aSchTT.c **** 	{
+ 160              		.loc 1 31 0 discriminator 2
+ 161 00da FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 162 00dc 0133     		adds	r3, r3, #1
+ 163 00de FB71     		strb	r3, [r7, #7]
+ 164              	.L2:
+  31:Scheduler/aSchTT.c **** 	{
+ 165              		.loc 1 31 0 is_stmt 0 discriminator 1
+ 166 00e0 FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 167 00e2 052B     		cmp	r3, #5
+ 168 00e4 94D9     		bls	.L4
+  58:Scheduler/aSchTT.c **** 				}else{/*n2do: task is periodic*/}
+  59:Scheduler/aSchTT.c **** 
+ARM GAS  /tmp/ccTHuVa3.s 			page 5
+
+
+  60:Scheduler/aSchTT.c **** 			}
+  61:Scheduler/aSchTT.c **** 			else /*task is already running: OSEK doesn't allow a task to preempt itself*/
+  62:Scheduler/aSchTT.c **** 			{
+  63:Scheduler/aSchTT.c **** 				/*report error*/
+  64:Scheduler/aSchTT.c **** 
+  65:Scheduler/aSchTT.c **** 			}
+  66:Scheduler/aSchTT.c **** 		}
+  67:Scheduler/aSchTT.c **** 		else
+  68:Scheduler/aSchTT.c **** 		{
+  69:Scheduler/aSchTT.c **** 			/*nothing to do: timer not elapsed yet*/
+  70:Scheduler/aSchTT.c **** 		}
+  71:Scheduler/aSchTT.c **** 	}
+  72:Scheduler/aSchTT.c **** 	/*run the idle task*/
+  73:Scheduler/aSchTT.c **** 	task_idle();
+ 169              		.loc 1 73 0 is_stmt 1
+ 170 00e6 FFF7FEFF 		bl	task_idle
+  74:Scheduler/aSchTT.c **** }
+ 171              		.loc 1 74 0
+ 172 00ea 00BF     		nop
+ 173 00ec 0837     		adds	r7, r7, #8
+ 174              	.LCFI3:
+ 175              		.cfi_def_cfa_offset 8
+ 176 00ee BD46     		mov	sp, r7
+ 177              	.LCFI4:
+ 178              		.cfi_def_cfa_register 13
+ 179              		@ sp needed
+ 180 00f0 80BD     		pop	{r7, pc}
+ 181              	.L6:
+ 182 00f2 00BF     		.align	2
+ 183              	.L5:
+ 184 00f4 00000000 		.word	aSchTTDispTbl_Tasks
+ 185              		.cfi_endproc
+ 186              	.LFE0:
+ 188              		.section	.text.aSchTTUpdate,"ax",%progbits
+ 189              		.align	1
+ 190              		.global	aSchTTUpdate
+ 191              		.syntax unified
+ 192              		.thumb
+ 193              		.thumb_func
+ 194              		.fpu softvfp
+ 196              	aSchTTUpdate:
+ 197              	.LFB1:
+  75:Scheduler/aSchTT.c **** 
+  76:Scheduler/aSchTT.c **** 
+  77:Scheduler/aSchTT.c **** /*update task timers*/
+  78:Scheduler/aSchTT.c **** void aSchTTUpdate( void )
+  79:Scheduler/aSchTT.c **** {
+ 198              		.loc 1 79 0
+ 199              		.cfi_startproc
+ 200              		@ args = 0, pretend = 0, frame = 8
+ 201              		@ frame_needed = 1, uses_anonymous_args = 0
+ 202              		@ link register save eliminated.
+ 203 0000 80B4     		push	{r7}
+ 204              	.LCFI5:
+ 205              		.cfi_def_cfa_offset 4
+ 206              		.cfi_offset 7, -4
+ 207 0002 83B0     		sub	sp, sp, #12
+ARM GAS  /tmp/ccTHuVa3.s 			page 6
+
+
+ 208              	.LCFI6:
+ 209              		.cfi_def_cfa_offset 16
+ 210 0004 00AF     		add	r7, sp, #0
+ 211              	.LCFI7:
+ 212              		.cfi_def_cfa_register 7
+  80:Scheduler/aSchTT.c **** 	/*index to parse the task's array*/
+  81:Scheduler/aSchTT.c **** 	UINT8 TaskIndex = 0u;
+ 213              		.loc 1 81 0
+ 214 0006 0023     		movs	r3, #0
+ 215 0008 FB71     		strb	r3, [r7, #7]
+  82:Scheduler/aSchTT.c **** 
+  83:Scheduler/aSchTT.c **** 
+  84:Scheduler/aSchTT.c **** 	for (TaskIndex = 0u; TaskIndex < ASCHTTTASKS_NBOF_TASKS; TaskIndex++)
+ 216              		.loc 1 84 0
+ 217 000a 0023     		movs	r3, #0
+ 218 000c FB71     		strb	r3, [r7, #7]
+ 219 000e 45E0     		b	.L8
+ 220              	.L12:
+  85:Scheduler/aSchTT.c **** 	{
+  86:Scheduler/aSchTT.c **** 		if (aSchTTDispTbl_Tasks[TaskIndex].TaskFunction != 0)
+ 221              		.loc 1 86 0
+ 222 0010 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 223 0012 2649     		ldr	r1, .L13
+ 224 0014 1346     		mov	r3, r2
+ 225 0016 5B00     		lsls	r3, r3, #1
+ 226 0018 1344     		add	r3, r3, r2
+ 227 001a 9B00     		lsls	r3, r3, #2
+ 228 001c 0B44     		add	r3, r3, r1
+ 229 001e 0833     		adds	r3, r3, #8
+ 230 0020 1B68     		ldr	r3, [r3]
+ 231 0022 002B     		cmp	r3, #0
+ 232 0024 16D0     		beq	.L9
+  87:Scheduler/aSchTT.c **** 		{/*decrement the timer if the task is active (OneShot tasks are removed after the first call: Tas
+  88:Scheduler/aSchTT.c **** 			aSchTTDispTbl_Tasks[TaskIndex].Timer--;
+ 233              		.loc 1 88 0
+ 234 0026 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 235 0028 2049     		ldr	r1, .L13
+ 236 002a 1346     		mov	r3, r2
+ 237 002c 5B00     		lsls	r3, r3, #1
+ 238 002e 1344     		add	r3, r3, r2
+ 239 0030 9B00     		lsls	r3, r3, #2
+ 240 0032 0B44     		add	r3, r3, r1
+ 241 0034 0433     		adds	r3, r3, #4
+ 242 0036 B3F90030 		ldrsh	r3, [r3]
+ 243 003a 9BB2     		uxth	r3, r3
+ 244 003c 013B     		subs	r3, r3, #1
+ 245 003e 9BB2     		uxth	r3, r3
+ 246 0040 18B2     		sxth	r0, r3
+ 247 0042 1A49     		ldr	r1, .L13
+ 248 0044 1346     		mov	r3, r2
+ 249 0046 5B00     		lsls	r3, r3, #1
+ 250 0048 1344     		add	r3, r3, r2
+ 251 004a 9B00     		lsls	r3, r3, #2
+ 252 004c 0B44     		add	r3, r3, r1
+ 253 004e 0433     		adds	r3, r3, #4
+ 254 0050 0246     		mov	r2, r0	@ movhi
+ 255 0052 1A80     		strh	r2, [r3]	@ movhi
+ARM GAS  /tmp/ccTHuVa3.s 			page 7
+
+
+ 256              	.L9:
+  89:Scheduler/aSchTT.c **** 		}
+  90:Scheduler/aSchTT.c **** 
+  91:Scheduler/aSchTT.c **** 		/*has the task timer elapsed?*/
+  92:Scheduler/aSchTT.c **** 		if ( aSchTTDispTbl_Tasks[TaskIndex].Timer == 0 ) //XXX: was <=0
+ 257              		.loc 1 92 0
+ 258 0054 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 259 0056 1549     		ldr	r1, .L13
+ 260 0058 1346     		mov	r3, r2
+ 261 005a 5B00     		lsls	r3, r3, #1
+ 262 005c 1344     		add	r3, r3, r2
+ 263 005e 9B00     		lsls	r3, r3, #2
+ 264 0060 0B44     		add	r3, r3, r1
+ 265 0062 0433     		adds	r3, r3, #4
+ 266 0064 B3F90030 		ldrsh	r3, [r3]
+ 267 0068 002B     		cmp	r3, #0
+ 268 006a 0FD1     		bne	.L10
+  93:Scheduler/aSchTT.c **** 		{
+  94:Scheduler/aSchTT.c **** 
+  95:Scheduler/aSchTT.c **** 			/*Check if Task was not stopped*/
+  96:Scheduler/aSchTT.c **** 			if ( ttSUSPENDED != aSchTTDispTbl_Tasks[TaskIndex].State )
+ 269              		.loc 1 96 0
+ 270 006c FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 271 006e 0F49     		ldr	r1, .L13
+ 272 0070 1346     		mov	r3, r2
+ 273 0072 5B00     		lsls	r3, r3, #1
+ 274 0074 1344     		add	r3, r3, r2
+ 275 0076 9B00     		lsls	r3, r3, #2
+ 276 0078 0B44     		add	r3, r3, r1
+ 277 007a 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 278 007c 002B     		cmp	r3, #0
+ 279 007e 0AD1     		bne	.L11
+  97:Scheduler/aSchTT.c **** 			{
+  98:Scheduler/aSchTT.c **** 				/*task overrun condition: it is still running/preempted from last call*/
+  99:Scheduler/aSchTT.c **** 				/*report error*/
+ 100:Scheduler/aSchTT.c **** 
+ 101:Scheduler/aSchTT.c **** 			}//if task not suspended
+ 102:Scheduler/aSchTT.c **** 			else /*normal operation: task is suspended*/
+ 103:Scheduler/aSchTT.c **** 			{
+ 104:Scheduler/aSchTT.c **** 				/*check and report task drift: timer < 0 (task drift happens when a task runs over other task's
+ 105:Scheduler/aSchTT.c **** 				if (aSchTTDispTbl_Tasks[TaskIndex].Timer < 0)
+ 280              		.loc 1 105 0
+ 281 0080 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 282 0082 1346     		mov	r3, r2
+ 283 0084 5B00     		lsls	r3, r3, #1
+ 284 0086 1344     		add	r3, r3, r2
+ 285 0088 9B00     		lsls	r3, r3, #2
+ 286 008a 04E0     		b	.L11
+ 287              	.L10:
+ 106:Scheduler/aSchTT.c **** 				{
+ 107:Scheduler/aSchTT.c **** 					/*print OS message with drift report*/
+ 108:Scheduler/aSchTT.c **** 					/*report error*/
+ 109:Scheduler/aSchTT.c **** 
+ 110:Scheduler/aSchTT.c **** 				}
+ 111:Scheduler/aSchTT.c **** 
+ 112:Scheduler/aSchTT.c **** 			}
+ 113:Scheduler/aSchTT.c **** 		}//if Timer <= 0
+ARM GAS  /tmp/ccTHuVa3.s 			page 8
+
+
+ 114:Scheduler/aSchTT.c **** 		else
+ 115:Scheduler/aSchTT.c **** 		{
+ 116:Scheduler/aSchTT.c **** 			/*is the task running or preempted?*/
+ 117:Scheduler/aSchTT.c **** 			if ( aSchTTDispTbl_Tasks[TaskIndex].State == ttRUNNING ) //was: != ttSUSPENDED )
+ 288              		.loc 1 117 0
+ 289 008c FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 290 008e 1346     		mov	r3, r2
+ 291 0090 5B00     		lsls	r3, r3, #1
+ 292 0092 1344     		add	r3, r3, r2
+ 293 0094 9B00     		lsls	r3, r3, #2
+ 294              	.L11:
+  84:Scheduler/aSchTT.c **** 	{
+ 295              		.loc 1 84 0 discriminator 2
+ 296 0096 FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 297 0098 0133     		adds	r3, r3, #1
+ 298 009a FB71     		strb	r3, [r7, #7]
+ 299              	.L8:
+  84:Scheduler/aSchTT.c **** 	{
+ 300              		.loc 1 84 0 is_stmt 0 discriminator 1
+ 301 009c FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 302 009e 052B     		cmp	r3, #5
+ 303 00a0 B6D9     		bls	.L12
+ 118:Scheduler/aSchTT.c **** 			{
+ 119:Scheduler/aSchTT.c **** 			}
+ 120:Scheduler/aSchTT.c **** 		}
+ 121:Scheduler/aSchTT.c **** 	}//for
+ 122:Scheduler/aSchTT.c **** 
+ 123:Scheduler/aSchTT.c **** }
+ 304              		.loc 1 123 0 is_stmt 1
+ 305 00a2 00BF     		nop
+ 306 00a4 0C37     		adds	r7, r7, #12
+ 307              	.LCFI8:
+ 308              		.cfi_def_cfa_offset 4
+ 309 00a6 BD46     		mov	sp, r7
+ 310              	.LCFI9:
+ 311              		.cfi_def_cfa_register 13
+ 312              		@ sp needed
+ 313 00a8 80BC     		pop	{r7}
+ 314              	.LCFI10:
+ 315              		.cfi_restore 7
+ 316              		.cfi_def_cfa_offset 0
+ 317 00aa 7047     		bx	lr
+ 318              	.L14:
+ 319              		.align	2
+ 320              	.L13:
+ 321 00ac 00000000 		.word	aSchTTDispTbl_Tasks
+ 322              		.cfi_endproc
+ 323              	.LFE1:
+ 325              		.text
+ 326              	.Letext0:
+ 327              		.file 2 "Scheduler/aSchTT_types.h"
+ 328              		.file 3 "Scheduler/aSchTT.h"
+ 329              		.file 4 "Application/application_tasks.h"
+ARM GAS  /tmp/ccTHuVa3.s 			page 9
+
+
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 aSchTT.c
+     /tmp/ccTHuVa3.s:16     .text.aSchTTMng:0000000000000000 $t
+     /tmp/ccTHuVa3.s:23     .text.aSchTTMng:0000000000000000 aSchTTMng
+     /tmp/ccTHuVa3.s:184    .text.aSchTTMng:00000000000000f4 $d
+     /tmp/ccTHuVa3.s:189    .text.aSchTTUpdate:0000000000000000 $t
+     /tmp/ccTHuVa3.s:196    .text.aSchTTUpdate:0000000000000000 aSchTTUpdate
+     /tmp/ccTHuVa3.s:321    .text.aSchTTUpdate:00000000000000ac $d
+
+UNDEFINED SYMBOLS
+task_idle
+aSchTTDispTbl_Tasks

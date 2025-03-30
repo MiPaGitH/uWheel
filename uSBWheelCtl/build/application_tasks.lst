@@ -1,0 +1,447 @@
+ARM GAS  /tmp/ccnWKGv1.s 			page 1
+
+
+   1              		.cpu cortex-m3
+   2              		.eabi_attribute 20, 1
+   3              		.eabi_attribute 21, 1
+   4              		.eabi_attribute 23, 3
+   5              		.eabi_attribute 24, 1
+   6              		.eabi_attribute 25, 1
+   7              		.eabi_attribute 26, 1
+   8              		.eabi_attribute 30, 6
+   9              		.eabi_attribute 34, 1
+  10              		.eabi_attribute 18, 4
+  11              		.file	"application_tasks.c"
+  12              		.text
+  13              	.Ltext0:
+  14              		.cfi_sections	.debug_frame
+  15              		.global	aSchTTDispTbl_Tasks
+  16              		.section	.data.aSchTTDispTbl_Tasks,"aw",%progbits
+  17              		.align	2
+  20              	aSchTTDispTbl_Tasks:
+  21 0000 00       		.byte	0
+  22 0001 00       		.byte	0
+  23 0002 0100     		.short	1
+  24 0004 0000     		.short	0
+  25 0006 0000     		.space	2
+  26 0008 00000000 		.word	task_1ms
+  27 000c 00       		.byte	0
+  28 000d 00       		.byte	0
+  29 000e 0A00     		.short	10
+  30 0010 0000     		.short	0
+  31 0012 0000     		.space	2
+  32 0014 00000000 		.word	task_10ms
+  33 0018 00       		.byte	0
+  34 0019 00       		.byte	0
+  35 001a 0A00     		.short	10
+  36 001c 0400     		.short	4
+  37 001e 0000     		.space	2
+  38 0020 00000000 		.word	task_10ms_Offset
+  39 0024 00       		.byte	0
+  40 0025 00       		.byte	0
+  41 0026 6400     		.short	100
+  42 0028 0600     		.short	6
+  43 002a 0000     		.space	2
+  44 002c 00000000 		.word	task_100ms
+  45 0030 00       		.byte	0
+  46 0031 00       		.byte	0
+  47 0032 F401     		.short	500
+  48 0034 0100     		.short	1
+  49 0036 0000     		.space	2
+  50 0038 00000000 		.word	task_500ms
+  51 003c 00       		.byte	0
+  52 003d 00       		.byte	0
+  53 003e E803     		.short	1000
+  54 0040 E803     		.short	1000
+  55 0042 0000     		.space	2
+  56 0044 00000000 		.word	task_1000ms
+  57              		.section	.text.task_idle,"ax",%progbits
+  58              		.align	1
+  59              		.global	task_idle
+ARM GAS  /tmp/ccnWKGv1.s 			page 2
+
+
+  60              		.syntax unified
+  61              		.thumb
+  62              		.thumb_func
+  63              		.fpu softvfp
+  65              	task_idle:
+  66              	.LFB66:
+  67              		.file 1 "Application/application_tasks.c"
+   1:Application/application_tasks.c **** /*
+   2:Application/application_tasks.c ****  * aplication_tasks.c
+   3:Application/application_tasks.c ****  *
+   4:Application/application_tasks.c ****  *  Created on: July 24, 2013
+   5:Application/application_tasks.c ****  *      Author: MP
+   6:Application/application_tasks.c ****  *		Description: here the dispatch table and the periodic tasks are defined
+   7:Application/application_tasks.c ****  *		History
+   8:Application/application_tasks.c ****  *			July 24, 2013 file creation
+   9:Application/application_tasks.c ****  *			February 2, 2014 rename from aschtttasks.c to application_tasks.c and update the dispatch tabl
+  10:Application/application_tasks.c ****  */
+  11:Application/application_tasks.c **** 
+  12:Application/application_tasks.c **** #include "main.h"
+  13:Application/application_tasks.c **** #include "aSchTT_types.h"
+  14:Application/application_tasks.c **** #include "aSchTT.h"
+  15:Application/application_tasks.c **** #include "application_tasks.h"
+  16:Application/application_tasks.c **** #include "aleds.h"
+  17:Application/application_tasks.c **** #include "abuttons.h"
+  18:Application/application_tasks.c **** #include "ausb.h"
+  19:Application/application_tasks.c **** #ifdef SSI_WITH_TIMER
+  20:Application/application_tasks.c **** #include "amagenc.h"
+  21:Application/application_tasks.c **** #else
+  22:Application/application_tasks.c **** #include "amagencSpi.h"
+  23:Application/application_tasks.c **** #endif
+  24:Application/application_tasks.c **** #include "apedals.h"
+  25:Application/application_tasks.c **** #include "aBle2UARTApi.h"
+  26:Application/application_tasks.c **** 
+  27:Application/application_tasks.c **** 
+  28:Application/application_tasks.c **** /**defines
+  29:Application/application_tasks.c ****  */
+  30:Application/application_tasks.c **** 
+  31:Application/application_tasks.c **** /**variables
+  32:Application/application_tasks.c ****  */
+  33:Application/application_tasks.c **** extern UINT8 osTickExecuted;
+  34:Application/application_tasks.c **** 
+  35:Application/application_tasks.c **** /**function prototypes
+  36:Application/application_tasks.c ****  */
+  37:Application/application_tasks.c **** UINT8 dispTableCheck(UINT16 *pMin, UINT16 *pMax);
+  38:Application/application_tasks.c **** 
+  39:Application/application_tasks.c **** /**GENERATED DISPATCH TABLE
+  40:Application/application_tasks.c ****  */
+  41:Application/application_tasks.c **** ttTaskType aSchTTDispTbl_Tasks[ASCHTTTASKS_NBOF_TASKS] = {
+  42:Application/application_tasks.c **** 					{0u, 	0u, 	1u, 	0, 		task_1ms},
+  43:Application/application_tasks.c **** 					{0u, 	0u, 	10u, 	0, 		task_10ms},
+  44:Application/application_tasks.c **** 					{0u, 	0u, 	10u, 	4,		task_10ms_Offset},
+  45:Application/application_tasks.c **** 					{0u, 	0u, 	100u, 	6, 		task_100ms},
+  46:Application/application_tasks.c **** 					{0u, 	0u, 	500u, 	1, 		task_500ms},
+  47:Application/application_tasks.c **** 					{0u, 	0u, 	1000u, 	1000u, 	task_1000ms}
+  48:Application/application_tasks.c **** 
+  49:Application/application_tasks.c **** 				};
+  50:Application/application_tasks.c **** 
+ARM GAS  /tmp/ccnWKGv1.s 			page 3
+
+
+  51:Application/application_tasks.c **** 
+  52:Application/application_tasks.c **** /*THE IDLE TASK*/
+  53:Application/application_tasks.c **** void task_idle( void )
+  54:Application/application_tasks.c **** {
+  68              		.loc 1 54 0
+  69              		.cfi_startproc
+  70              		@ args = 0, pretend = 0, frame = 0
+  71              		@ frame_needed = 1, uses_anonymous_args = 0
+  72 0000 80B5     		push	{r7, lr}
+  73              	.LCFI0:
+  74              		.cfi_def_cfa_offset 8
+  75              		.cfi_offset 7, -8
+  76              		.cfi_offset 14, -4
+  77 0002 00AF     		add	r7, sp, #0
+  78              	.LCFI1:
+  79              		.cfi_def_cfa_register 7
+  55:Application/application_tasks.c **** #ifdef SSI_WITH_TIMER
+  56:Application/application_tasks.c **** 	amagenc_perTask();
+  57:Application/application_tasks.c **** #endif
+  58:Application/application_tasks.c **** 	ausb_physicalInterfaceSM();
+  80              		.loc 1 58 0
+  81 0004 FFF7FEFF 		bl	ausb_physicalInterfaceSM
+  59:Application/application_tasks.c **** 	apedalsAsyncTask();
+  82              		.loc 1 59 0
+  83 0008 FFF7FEFF 		bl	apedalsAsyncTask
+  60:Application/application_tasks.c **** }
+  84              		.loc 1 60 0
+  85 000c 00BF     		nop
+  86 000e 80BD     		pop	{r7, pc}
+  87              		.cfi_endproc
+  88              	.LFE66:
+  90              		.section	.text.task_1ms,"ax",%progbits
+  91              		.align	1
+  92              		.global	task_1ms
+  93              		.syntax unified
+  94              		.thumb
+  95              		.thumb_func
+  96              		.fpu softvfp
+  98              	task_1ms:
+  99              	.LFB67:
+  61:Application/application_tasks.c **** 
+  62:Application/application_tasks.c **** /**GENERATED TASK definitions
+  63:Application/application_tasks.c ****  */
+  64:Application/application_tasks.c **** void task_1ms( void )
+  65:Application/application_tasks.c **** {
+ 100              		.loc 1 65 0
+ 101              		.cfi_startproc
+ 102              		@ args = 0, pretend = 0, frame = 0
+ 103              		@ frame_needed = 1, uses_anonymous_args = 0
+ 104 0000 80B5     		push	{r7, lr}
+ 105              	.LCFI2:
+ 106              		.cfi_def_cfa_offset 8
+ 107              		.cfi_offset 7, -8
+ 108              		.cfi_offset 14, -4
+ 109 0002 00AF     		add	r7, sp, #0
+ 110              	.LCFI3:
+ 111              		.cfi_def_cfa_register 7
+ARM GAS  /tmp/ccnWKGv1.s 			page 4
+
+
+  66:Application/application_tasks.c **** 	ausb_manage1ms();
+ 112              		.loc 1 66 0
+ 113 0004 FFF7FEFF 		bl	ausb_manage1ms
+  67:Application/application_tasks.c **** 	affmotor_task();
+ 114              		.loc 1 67 0
+ 115 0008 FFF7FEFF 		bl	affmotor_task
+  68:Application/application_tasks.c **** }
+ 116              		.loc 1 68 0
+ 117 000c 00BF     		nop
+ 118 000e 80BD     		pop	{r7, pc}
+ 119              		.cfi_endproc
+ 120              	.LFE67:
+ 122              		.section	.text.task_10ms,"ax",%progbits
+ 123              		.align	1
+ 124              		.global	task_10ms
+ 125              		.syntax unified
+ 126              		.thumb
+ 127              		.thumb_func
+ 128              		.fpu softvfp
+ 130              	task_10ms:
+ 131              	.LFB68:
+  69:Application/application_tasks.c **** 
+  70:Application/application_tasks.c **** void task_10ms( void )
+  71:Application/application_tasks.c **** {
+ 132              		.loc 1 71 0
+ 133              		.cfi_startproc
+ 134              		@ args = 0, pretend = 0, frame = 0
+ 135              		@ frame_needed = 1, uses_anonymous_args = 0
+ 136 0000 80B5     		push	{r7, lr}
+ 137              	.LCFI4:
+ 138              		.cfi_def_cfa_offset 8
+ 139              		.cfi_offset 7, -8
+ 140              		.cfi_offset 14, -4
+ 141 0002 00AF     		add	r7, sp, #0
+ 142              	.LCFI5:
+ 143              		.cfi_def_cfa_register 7
+  72:Application/application_tasks.c ****   ausb_manage10ms();
+ 144              		.loc 1 72 0
+ 145 0004 FFF7FEFF 		bl	ausb_manage10ms
+  73:Application/application_tasks.c ****   aBlePerTask( 10u );
+ 146              		.loc 1 73 0
+ 147 0008 0A20     		movs	r0, #10
+ 148 000a FFF7FEFF 		bl	aBlePerTask
+  74:Application/application_tasks.c **** }
+ 149              		.loc 1 74 0
+ 150 000e 00BF     		nop
+ 151 0010 80BD     		pop	{r7, pc}
+ 152              		.cfi_endproc
+ 153              	.LFE68:
+ 155              		.section	.text.task_10ms_Offset,"ax",%progbits
+ 156              		.align	1
+ 157              		.global	task_10ms_Offset
+ 158              		.syntax unified
+ 159              		.thumb
+ 160              		.thumb_func
+ 161              		.fpu softvfp
+ 163              	task_10ms_Offset:
+ARM GAS  /tmp/ccnWKGv1.s 			page 5
+
+
+ 164              	.LFB69:
+  75:Application/application_tasks.c **** 
+  76:Application/application_tasks.c **** void task_10ms_Offset( void )
+  77:Application/application_tasks.c **** {
+ 165              		.loc 1 77 0
+ 166              		.cfi_startproc
+ 167              		@ args = 0, pretend = 0, frame = 0
+ 168              		@ frame_needed = 1, uses_anonymous_args = 0
+ 169 0000 80B5     		push	{r7, lr}
+ 170              	.LCFI6:
+ 171              		.cfi_def_cfa_offset 8
+ 172              		.cfi_offset 7, -8
+ 173              		.cfi_offset 14, -4
+ 174 0002 00AF     		add	r7, sp, #0
+ 175              	.LCFI7:
+ 176              		.cfi_def_cfa_register 7
+  78:Application/application_tasks.c **** #ifdef SSI_WITH_TIMER
+  79:Application/application_tasks.c ****   	/*magnetic encoder: get new sample: starts SSI CLK and activates SSI interrupt where Wheel data 
+  80:Application/application_tasks.c **** 	amagenc_startSSIClk();
+  81:Application/application_tasks.c **** #else
+  82:Application/application_tasks.c **** 	amagencSpi_task();
+ 177              		.loc 1 82 0
+ 178 0004 FFF7FEFF 		bl	amagencSpi_task
+  83:Application/application_tasks.c **** #endif
+  84:Application/application_tasks.c **** 	/*leds control*/
+  85:Application/application_tasks.c **** 	aleds_manage();
+ 179              		.loc 1 85 0
+ 180 0008 FFF7FEFF 		bl	aleds_manage
+  86:Application/application_tasks.c **** 
+  87:Application/application_tasks.c **** }
+ 181              		.loc 1 87 0
+ 182 000c 00BF     		nop
+ 183 000e 80BD     		pop	{r7, pc}
+ 184              		.cfi_endproc
+ 185              	.LFE69:
+ 187              		.section	.text.task_100ms,"ax",%progbits
+ 188              		.align	1
+ 189              		.global	task_100ms
+ 190              		.syntax unified
+ 191              		.thumb
+ 192              		.thumb_func
+ 193              		.fpu softvfp
+ 195              	task_100ms:
+ 196              	.LFB70:
+  88:Application/application_tasks.c **** 
+  89:Application/application_tasks.c **** void task_100ms( void )
+  90:Application/application_tasks.c **** {
+ 197              		.loc 1 90 0
+ 198              		.cfi_startproc
+ 199              		@ args = 0, pretend = 0, frame = 0
+ 200              		@ frame_needed = 1, uses_anonymous_args = 0
+ 201 0000 80B5     		push	{r7, lr}
+ 202              	.LCFI8:
+ 203              		.cfi_def_cfa_offset 8
+ 204              		.cfi_offset 7, -8
+ 205              		.cfi_offset 14, -4
+ 206 0002 00AF     		add	r7, sp, #0
+ARM GAS  /tmp/ccnWKGv1.s 			page 6
+
+
+ 207              	.LCFI9:
+ 208              		.cfi_def_cfa_register 7
+  91:Application/application_tasks.c **** 
+  92:Application/application_tasks.c **** 	abuttons_manage();
+ 209              		.loc 1 92 0
+ 210 0004 FFF7FEFF 		bl	abuttons_manage
+  93:Application/application_tasks.c **** 	// apedalsPerTask(100u);
+  94:Application/application_tasks.c **** 	// affmotor_moveMotorsToKeepWireTension();
+  95:Application/application_tasks.c **** 
+  96:Application/application_tasks.c **** }
+ 211              		.loc 1 96 0
+ 212 0008 00BF     		nop
+ 213 000a 80BD     		pop	{r7, pc}
+ 214              		.cfi_endproc
+ 215              	.LFE70:
+ 217              		.section	.text.task_500ms,"ax",%progbits
+ 218              		.align	1
+ 219              		.global	task_500ms
+ 220              		.syntax unified
+ 221              		.thumb
+ 222              		.thumb_func
+ 223              		.fpu softvfp
+ 225              	task_500ms:
+ 226              	.LFB71:
+  97:Application/application_tasks.c **** 
+  98:Application/application_tasks.c **** void task_500ms( void )
+  99:Application/application_tasks.c **** {
+ 227              		.loc 1 99 0
+ 228              		.cfi_startproc
+ 229              		@ args = 0, pretend = 0, frame = 0
+ 230              		@ frame_needed = 1, uses_anonymous_args = 0
+ 231              		@ link register save eliminated.
+ 232 0000 80B4     		push	{r7}
+ 233              	.LCFI10:
+ 234              		.cfi_def_cfa_offset 4
+ 235              		.cfi_offset 7, -4
+ 236 0002 00AF     		add	r7, sp, #0
+ 237              	.LCFI11:
+ 238              		.cfi_def_cfa_register 7
+ 100:Application/application_tasks.c **** 
+ 101:Application/application_tasks.c **** }
+ 239              		.loc 1 101 0
+ 240 0004 00BF     		nop
+ 241 0006 BD46     		mov	sp, r7
+ 242              	.LCFI12:
+ 243              		.cfi_def_cfa_register 13
+ 244              		@ sp needed
+ 245 0008 80BC     		pop	{r7}
+ 246              	.LCFI13:
+ 247              		.cfi_restore 7
+ 248              		.cfi_def_cfa_offset 0
+ 249 000a 7047     		bx	lr
+ 250              		.cfi_endproc
+ 251              	.LFE71:
+ 253              		.section	.text.task_1000ms,"ax",%progbits
+ 254              		.align	1
+ 255              		.global	task_1000ms
+ARM GAS  /tmp/ccnWKGv1.s 			page 7
+
+
+ 256              		.syntax unified
+ 257              		.thumb
+ 258              		.thumb_func
+ 259              		.fpu softvfp
+ 261              	task_1000ms:
+ 262              	.LFB72:
+ 102:Application/application_tasks.c **** void task_1000ms( void )
+ 103:Application/application_tasks.c **** {
+ 263              		.loc 1 103 0
+ 264              		.cfi_startproc
+ 265              		@ args = 0, pretend = 0, frame = 0
+ 266              		@ frame_needed = 1, uses_anonymous_args = 0
+ 267              		@ link register save eliminated.
+ 268 0000 80B4     		push	{r7}
+ 269              	.LCFI14:
+ 270              		.cfi_def_cfa_offset 4
+ 271              		.cfi_offset 7, -4
+ 272 0002 00AF     		add	r7, sp, #0
+ 273              	.LCFI15:
+ 274              		.cfi_def_cfa_register 7
+ 104:Application/application_tasks.c **** 
+ 105:Application/application_tasks.c **** }
+ 275              		.loc 1 105 0
+ 276 0004 00BF     		nop
+ 277 0006 BD46     		mov	sp, r7
+ 278              	.LCFI16:
+ 279              		.cfi_def_cfa_register 13
+ 280              		@ sp needed
+ 281 0008 80BC     		pop	{r7}
+ 282              	.LCFI17:
+ 283              		.cfi_restore 7
+ 284              		.cfi_def_cfa_offset 0
+ 285 000a 7047     		bx	lr
+ 286              		.cfi_endproc
+ 287              	.LFE72:
+ 289              		.text
+ 290              	.Letext0:
+ 291              		.file 2 "Scheduler/aSchTT_types.h"
+ 292              		.file 3 "Scheduler/aSchTT.h"
+ 293              		.file 4 "Application/application_tasks.h"
+ 294              		.file 5 "Application/aLeds/aleds.h"
+ 295              		.file 6 "Application/aButtons/abuttons.h"
+ 296              		.file 7 "/usr/include/newlib/machine/_default_types.h"
+ 297              		.file 8 "/usr/include/newlib/sys/_stdint.h"
+ 298              		.file 9 "Drivers/CMSIS/Include/core_cm3.h"
+ 299              		.file 10 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h"
+ 300              		.file 11 "/usr/include/newlib/sys/lock.h"
+ 301              		.file 12 "/usr/include/newlib/sys/_types.h"
+ 302              		.file 13 "/usr/lib/gcc/arm-none-eabi/7.3.1/include/stddef.h"
+ 303              		.file 14 "/usr/include/newlib/sys/reent.h"
+ 304              		.file 15 "Application/aUSB/ausb.h"
+ 305              		.file 16 "Application/aMagEnc/amagencSpi.h"
+ARM GAS  /tmp/ccnWKGv1.s 			page 8
+
+
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 application_tasks.c
+     /tmp/ccnWKGv1.s:20     .data.aSchTTDispTbl_Tasks:0000000000000000 aSchTTDispTbl_Tasks
+     /tmp/ccnWKGv1.s:17     .data.aSchTTDispTbl_Tasks:0000000000000000 $d
+     /tmp/ccnWKGv1.s:98     .text.task_1ms:0000000000000000 task_1ms
+     /tmp/ccnWKGv1.s:130    .text.task_10ms:0000000000000000 task_10ms
+     /tmp/ccnWKGv1.s:163    .text.task_10ms_Offset:0000000000000000 task_10ms_Offset
+     /tmp/ccnWKGv1.s:195    .text.task_100ms:0000000000000000 task_100ms
+     /tmp/ccnWKGv1.s:225    .text.task_500ms:0000000000000000 task_500ms
+     /tmp/ccnWKGv1.s:261    .text.task_1000ms:0000000000000000 task_1000ms
+     /tmp/ccnWKGv1.s:58     .text.task_idle:0000000000000000 $t
+     /tmp/ccnWKGv1.s:65     .text.task_idle:0000000000000000 task_idle
+     /tmp/ccnWKGv1.s:91     .text.task_1ms:0000000000000000 $t
+     /tmp/ccnWKGv1.s:123    .text.task_10ms:0000000000000000 $t
+     /tmp/ccnWKGv1.s:156    .text.task_10ms_Offset:0000000000000000 $t
+     /tmp/ccnWKGv1.s:188    .text.task_100ms:0000000000000000 $t
+     /tmp/ccnWKGv1.s:218    .text.task_500ms:0000000000000000 $t
+     /tmp/ccnWKGv1.s:254    .text.task_1000ms:0000000000000000 $t
+
+UNDEFINED SYMBOLS
+ausb_physicalInterfaceSM
+apedalsAsyncTask
+ausb_manage1ms
+affmotor_task
+ausb_manage10ms
+aBlePerTask
+amagencSpi_task
+aleds_manage
+abuttons_manage

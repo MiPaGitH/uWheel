@@ -1,0 +1,771 @@
+ARM GAS  /tmp/ccOlSfs6.s 			page 1
+
+
+   1              		.cpu cortex-m3
+   2              		.eabi_attribute 20, 1
+   3              		.eabi_attribute 21, 1
+   4              		.eabi_attribute 23, 3
+   5              		.eabi_attribute 24, 1
+   6              		.eabi_attribute 25, 1
+   7              		.eabi_attribute 26, 1
+   8              		.eabi_attribute 30, 6
+   9              		.eabi_attribute 34, 1
+  10              		.eabi_attribute 18, 4
+  11              		.file	"affmotor.c"
+  12              		.text
+  13              	.Ltext0:
+  14              		.cfi_sections	.debug_frame
+  15              		.section	.bss.pwmPulseVal,"aw",%nobits
+  16              		.align	1
+  19              	pwmPulseVal:
+  20 0000 0000     		.space	2
+  21              		.section	.bss.directionChangeTimer,"aw",%nobits
+  24              	directionChangeTimer:
+  25 0000 00       		.space	1
+  26              		.section	.bss.lastUnprocessedMagnitude,"aw",%nobits
+  27              		.align	1
+  30              	lastUnprocessedMagnitude:
+  31 0000 0000     		.space	2
+  32              		.section	.bss.directionVal,"aw",%nobits
+  35              	directionVal:
+  36 0000 00       		.space	1
+  37              		.section	.text.affmotor_init,"ax",%progbits
+  38              		.align	1
+  39              		.global	affmotor_init
+  40              		.syntax unified
+  41              		.thumb
+  42              		.thumb_func
+  43              		.fpu softvfp
+  45              	affmotor_init:
+  46              	.LFB66:
+  47              		.file 1 "Application/aFFMotor/affmotor.c"
+   1:Application/aFFMotor/affmotor.c **** /*
+   2:Application/aFFMotor/affmotor.c ****  * aFFMotor.c
+   3:Application/aFFMotor/affmotor.c ****  *
+   4:Application/aFFMotor/affmotor.c ****  *  Created on: Jan 23, 2016
+   5:Application/aFFMotor/affmotor.c ****  *      Author: mirsiralu
+   6:Application/aFFMotor/affmotor.c ****  */
+   7:Application/aFFMotor/affmotor.c **** #include "affmotor.h"
+   8:Application/aFFMotor/affmotor.c **** #include "ausb.h"
+   9:Application/aFFMotor/affmotor.c **** #include "main.h"
+  10:Application/aFFMotor/affmotor.c **** #include "stm32f1xx_hal.h"
+  11:Application/aFFMotor/affmotor.c **** 
+  12:Application/aFFMotor/affmotor.c **** #define PWM_DEADZONE_DIVIDER (int16_t)5
+  13:Application/aFFMotor/affmotor.c **** 
+  14:Application/aFFMotor/affmotor.c **** static uint16_t pwmPulseVal;
+  15:Application/aFFMotor/affmotor.c **** static uint8_t directionChangeTimer;
+  16:Application/aFFMotor/affmotor.c **** static int16_t lastUnprocessedMagnitude;
+  17:Application/aFFMotor/affmotor.c **** enum
+  18:Application/aFFMotor/affmotor.c **** {
+  19:Application/aFFMotor/affmotor.c **** 	dirLeft,
+ARM GAS  /tmp/ccOlSfs6.s 			page 2
+
+
+  20:Application/aFFMotor/affmotor.c **** 	dirRight
+  21:Application/aFFMotor/affmotor.c **** };
+  22:Application/aFFMotor/affmotor.c **** 
+  23:Application/aFFMotor/affmotor.c **** static uint8_t directionVal;
+  24:Application/aFFMotor/affmotor.c **** 
+  25:Application/aFFMotor/affmotor.c **** extern TIM_HandleTypeDef htim3;
+  26:Application/aFFMotor/affmotor.c **** extern TIM_OC_InitTypeDef sConfigTim3;
+  27:Application/aFFMotor/affmotor.c **** 
+  28:Application/aFFMotor/affmotor.c **** void affmotor_init( void )
+  29:Application/aFFMotor/affmotor.c **** {
+  48              		.loc 1 29 0
+  49              		.cfi_startproc
+  50              		@ args = 0, pretend = 0, frame = 0
+  51              		@ frame_needed = 1, uses_anonymous_args = 0
+  52 0000 80B5     		push	{r7, lr}
+  53              	.LCFI0:
+  54              		.cfi_def_cfa_offset 8
+  55              		.cfi_offset 7, -8
+  56              		.cfi_offset 14, -4
+  57 0002 00AF     		add	r7, sp, #0
+  58              	.LCFI1:
+  59              		.cfi_def_cfa_register 7
+  30:Application/aFFMotor/affmotor.c **** 	pwmPulseVal = 0u;
+  60              		.loc 1 30 0
+  61 0004 074B     		ldr	r3, .L2
+  62 0006 0022     		movs	r2, #0
+  63 0008 1A80     		strh	r2, [r3]	@ movhi
+  31:Application/aFFMotor/affmotor.c **** 	directionVal = dirLeft;
+  64              		.loc 1 31 0
+  65 000a 074B     		ldr	r3, .L2+4
+  66 000c 0022     		movs	r2, #0
+  67 000e 1A70     		strb	r2, [r3]
+  32:Application/aFFMotor/affmotor.c **** 
+  33:Application/aFFMotor/affmotor.c **** 	directionChangeTimer = 0u;
+  68              		.loc 1 33 0
+  69 0010 064B     		ldr	r3, .L2+8
+  70 0012 0022     		movs	r2, #0
+  71 0014 1A70     		strb	r2, [r3]
+  34:Application/aFFMotor/affmotor.c **** 
+  35:Application/aFFMotor/affmotor.c **** 	lastUnprocessedMagnitude = 0;
+  72              		.loc 1 35 0
+  73 0016 064B     		ldr	r3, .L2+12
+  74 0018 0022     		movs	r2, #0
+  75 001a 1A80     		strh	r2, [r3]	@ movhi
+  36:Application/aFFMotor/affmotor.c **** 
+  37:Application/aFFMotor/affmotor.c **** 	affmotor_enable();
+  76              		.loc 1 37 0
+  77 001c FFF7FEFF 		bl	affmotor_enable
+  38:Application/aFFMotor/affmotor.c **** }
+  78              		.loc 1 38 0
+  79 0020 00BF     		nop
+  80 0022 80BD     		pop	{r7, pc}
+  81              	.L3:
+  82              		.align	2
+  83              	.L2:
+  84 0024 00000000 		.word	pwmPulseVal
+  85 0028 00000000 		.word	directionVal
+ARM GAS  /tmp/ccOlSfs6.s 			page 3
+
+
+  86 002c 00000000 		.word	directionChangeTimer
+  87 0030 00000000 		.word	lastUnprocessedMagnitude
+  88              		.cfi_endproc
+  89              	.LFE66:
+  91              		.section	.text.affmotor_enable,"ax",%progbits
+  92              		.align	1
+  93              		.global	affmotor_enable
+  94              		.syntax unified
+  95              		.thumb
+  96              		.thumb_func
+  97              		.fpu softvfp
+  99              	affmotor_enable:
+ 100              	.LFB67:
+  39:Application/aFFMotor/affmotor.c **** 
+  40:Application/aFFMotor/affmotor.c **** /*turn on motor power*/
+  41:Application/aFFMotor/affmotor.c **** void affmotor_enable( void )
+  42:Application/aFFMotor/affmotor.c **** {
+ 101              		.loc 1 42 0
+ 102              		.cfi_startproc
+ 103              		@ args = 0, pretend = 0, frame = 0
+ 104              		@ frame_needed = 1, uses_anonymous_args = 0
+ 105              		@ link register save eliminated.
+ 106 0000 80B4     		push	{r7}
+ 107              	.LCFI2:
+ 108              		.cfi_def_cfa_offset 4
+ 109              		.cfi_offset 7, -4
+ 110 0002 00AF     		add	r7, sp, #0
+ 111              	.LCFI3:
+ 112              		.cfi_def_cfa_register 7
+  43:Application/aFFMotor/affmotor.c **** 	// HAL_GPIO_WritePin(GPIOA, FFMotorRight_EnPin, GPIO_PIN_SET);
+  44:Application/aFFMotor/affmotor.c **** 	// HAL_GPIO_WritePin(GPIOA, FFMotorLeft_EnPin, GPIO_PIN_SET);
+  45:Application/aFFMotor/affmotor.c **** }
+ 113              		.loc 1 45 0
+ 114 0004 00BF     		nop
+ 115 0006 BD46     		mov	sp, r7
+ 116              	.LCFI4:
+ 117              		.cfi_def_cfa_register 13
+ 118              		@ sp needed
+ 119 0008 80BC     		pop	{r7}
+ 120              	.LCFI5:
+ 121              		.cfi_restore 7
+ 122              		.cfi_def_cfa_offset 0
+ 123 000a 7047     		bx	lr
+ 124              		.cfi_endproc
+ 125              	.LFE67:
+ 127              		.section	.text.affmotor_disable,"ax",%progbits
+ 128              		.align	1
+ 129              		.global	affmotor_disable
+ 130              		.syntax unified
+ 131              		.thumb
+ 132              		.thumb_func
+ 133              		.fpu softvfp
+ 135              	affmotor_disable:
+ 136              	.LFB68:
+  46:Application/aFFMotor/affmotor.c **** 
+  47:Application/aFFMotor/affmotor.c **** /*turn off motor power*/
+  48:Application/aFFMotor/affmotor.c **** void affmotor_disable( void )
+ARM GAS  /tmp/ccOlSfs6.s 			page 4
+
+
+  49:Application/aFFMotor/affmotor.c **** {
+ 137              		.loc 1 49 0
+ 138              		.cfi_startproc
+ 139              		@ args = 0, pretend = 0, frame = 0
+ 140              		@ frame_needed = 1, uses_anonymous_args = 0
+ 141 0000 80B5     		push	{r7, lr}
+ 142              	.LCFI6:
+ 143              		.cfi_def_cfa_offset 8
+ 144              		.cfi_offset 7, -8
+ 145              		.cfi_offset 14, -4
+ 146 0002 00AF     		add	r7, sp, #0
+ 147              	.LCFI7:
+ 148              		.cfi_def_cfa_register 7
+  50:Application/aFFMotor/affmotor.c **** 	HAL_GPIO_WritePin(GPIOA, FFMotorRight_EnPin, GPIO_PIN_RESET);
+ 149              		.loc 1 50 0
+ 150 0004 0022     		movs	r2, #0
+ 151 0006 2021     		movs	r1, #32
+ 152 0008 0448     		ldr	r0, .L6
+ 153 000a FFF7FEFF 		bl	HAL_GPIO_WritePin
+  51:Application/aFFMotor/affmotor.c **** 	HAL_GPIO_WritePin(GPIOA, FFMotorLeft_EnPin, GPIO_PIN_RESET);
+ 154              		.loc 1 51 0
+ 155 000e 0022     		movs	r2, #0
+ 156 0010 1021     		movs	r1, #16
+ 157 0012 0248     		ldr	r0, .L6
+ 158 0014 FFF7FEFF 		bl	HAL_GPIO_WritePin
+  52:Application/aFFMotor/affmotor.c **** }
+ 159              		.loc 1 52 0
+ 160 0018 00BF     		nop
+ 161 001a 80BD     		pop	{r7, pc}
+ 162              	.L7:
+ 163              		.align	2
+ 164              	.L6:
+ 165 001c 00080140 		.word	1073809408
+ 166              		.cfi_endproc
+ 167              	.LFE68:
+ 169              		.section	.rodata
+ 170              		.align	2
+ 171              	.LC0:
+ 172 0000 4170706C 		.ascii	"Application/aFFMotor/affmotor.c\000"
+ 172      69636174 
+ 172      696F6E2F 
+ 172      6146464D 
+ 172      6F746F72 
+ 173              		.section	.text.affmotor_start,"ax",%progbits
+ 174              		.align	1
+ 175              		.global	affmotor_start
+ 176              		.syntax unified
+ 177              		.thumb
+ 178              		.thumb_func
+ 179              		.fpu softvfp
+ 181              	affmotor_start:
+ 182              	.LFB69:
+  53:Application/aFFMotor/affmotor.c **** 
+  54:Application/aFFMotor/affmotor.c **** /*start motor*/
+  55:Application/aFFMotor/affmotor.c **** void affmotor_start( void )
+  56:Application/aFFMotor/affmotor.c **** {
+ 183              		.loc 1 56 0
+ARM GAS  /tmp/ccOlSfs6.s 			page 5
+
+
+ 184              		.cfi_startproc
+ 185              		@ args = 0, pretend = 0, frame = 0
+ 186              		@ frame_needed = 1, uses_anonymous_args = 0
+ 187 0000 80B5     		push	{r7, lr}
+ 188              	.LCFI8:
+ 189              		.cfi_def_cfa_offset 8
+ 190              		.cfi_offset 7, -8
+ 191              		.cfi_offset 14, -4
+ 192 0002 00AF     		add	r7, sp, #0
+ 193              	.LCFI9:
+ 194              		.cfi_def_cfa_register 7
+  57:Application/aFFMotor/affmotor.c **** 
+  58:Application/aFFMotor/affmotor.c ****   	if (HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1) != HAL_OK)
+ 195              		.loc 1 58 0
+ 196 0004 0021     		movs	r1, #0
+ 197 0006 0648     		ldr	r0, .L11
+ 198 0008 FFF7FEFF 		bl	HAL_TIM_PWM_Start
+ 199 000c 0346     		mov	r3, r0
+ 200 000e 002B     		cmp	r3, #0
+ 201 0010 03D0     		beq	.L10
+  59:Application/aFFMotor/affmotor.c ****   	{
+  60:Application/aFFMotor/affmotor.c ****     	/* PWM Generation Error */
+  61:Application/aFFMotor/affmotor.c ****     	Error_Handler();
+ 202              		.loc 1 61 0
+ 203 0012 3D21     		movs	r1, #61
+ 204 0014 0348     		ldr	r0, .L11+4
+ 205 0016 FFF7FEFF 		bl	_Error_Handler
+ 206              	.L10:
+  62:Application/aFFMotor/affmotor.c ****   	}
+  63:Application/aFFMotor/affmotor.c **** }
+ 207              		.loc 1 63 0
+ 208 001a 00BF     		nop
+ 209 001c 80BD     		pop	{r7, pc}
+ 210              	.L12:
+ 211 001e 00BF     		.align	2
+ 212              	.L11:
+ 213 0020 00000000 		.word	htim3
+ 214 0024 00000000 		.word	.LC0
+ 215              		.cfi_endproc
+ 216              	.LFE69:
+ 218              		.section	.text.affmotor_stop,"ax",%progbits
+ 219              		.align	1
+ 220              		.global	affmotor_stop
+ 221              		.syntax unified
+ 222              		.thumb
+ 223              		.thumb_func
+ 224              		.fpu softvfp
+ 226              	affmotor_stop:
+ 227              	.LFB70:
+  64:Application/aFFMotor/affmotor.c **** 
+  65:Application/aFFMotor/affmotor.c **** /*stop motor*/
+  66:Application/aFFMotor/affmotor.c **** void affmotor_stop( void )
+  67:Application/aFFMotor/affmotor.c **** {
+ 228              		.loc 1 67 0
+ 229              		.cfi_startproc
+ 230              		@ args = 0, pretend = 0, frame = 0
+ 231              		@ frame_needed = 1, uses_anonymous_args = 0
+ARM GAS  /tmp/ccOlSfs6.s 			page 6
+
+
+ 232 0000 80B5     		push	{r7, lr}
+ 233              	.LCFI10:
+ 234              		.cfi_def_cfa_offset 8
+ 235              		.cfi_offset 7, -8
+ 236              		.cfi_offset 14, -4
+ 237 0002 00AF     		add	r7, sp, #0
+ 238              	.LCFI11:
+ 239              		.cfi_def_cfa_register 7
+  68:Application/aFFMotor/affmotor.c **** 	if (HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1) != HAL_OK)
+ 240              		.loc 1 68 0
+ 241 0004 0021     		movs	r1, #0
+ 242 0006 0648     		ldr	r0, .L16
+ 243 0008 FFF7FEFF 		bl	HAL_TIM_PWM_Stop
+ 244 000c 0346     		mov	r3, r0
+ 245 000e 002B     		cmp	r3, #0
+ 246 0010 03D0     		beq	.L15
+  69:Application/aFFMotor/affmotor.c ****   	{
+  70:Application/aFFMotor/affmotor.c ****     	/* PWM Generation Error */
+  71:Application/aFFMotor/affmotor.c ****     	Error_Handler();
+ 247              		.loc 1 71 0
+ 248 0012 4721     		movs	r1, #71
+ 249 0014 0348     		ldr	r0, .L16+4
+ 250 0016 FFF7FEFF 		bl	_Error_Handler
+ 251              	.L15:
+  72:Application/aFFMotor/affmotor.c ****   	}
+  73:Application/aFFMotor/affmotor.c **** }
+ 252              		.loc 1 73 0
+ 253 001a 00BF     		nop
+ 254 001c 80BD     		pop	{r7, pc}
+ 255              	.L17:
+ 256 001e 00BF     		.align	2
+ 257              	.L16:
+ 258 0020 00000000 		.word	htim3
+ 259 0024 00000000 		.word	.LC0
+ 260              		.cfi_endproc
+ 261              	.LFE70:
+ 263              		.section	.bss.cfMagnitudeOld,"aw",%nobits
+ 264              		.align	1
+ 267              	cfMagnitudeOld:
+ 268 0000 0000     		.space	2
+ 269              		.section	.text.affmotor_updatePwmDC,"ax",%progbits
+ 270              		.align	1
+ 271              		.global	affmotor_updatePwmDC
+ 272              		.syntax unified
+ 273              		.thumb
+ 274              		.thumb_func
+ 275              		.fpu softvfp
+ 277              	affmotor_updatePwmDC:
+ 278              	.LFB71:
+  74:Application/aFFMotor/affmotor.c **** 
+  75:Application/aFFMotor/affmotor.c **** /*
+  76:Application/aFFMotor/affmotor.c **** params:
+  77:Application/aFFMotor/affmotor.c **** 	direction - negative or positive  
+  78:Application/aFFMotor/affmotor.c **** 				LFS doesn't change the direction value (is always 2); but constant force magnitude goes from -1
+  79:Application/aFFMotor/affmotor.c **** 				TODO see if other games use the direction bit in set effect report
+  80:Application/aFFMotor/affmotor.c **** 
+  81:Application/aFFMotor/affmotor.c **** 	cfMagnitude - value received from usb; range is -10000 - +10000 (but only 0-10000 should be receiv
+ARM GAS  /tmp/ccOlSfs6.s 			page 7
+
+
+  82:Application/aFFMotor/affmotor.c **** */
+  83:Application/aFFMotor/affmotor.c **** static int16_t cfMagnitudeOld;
+  84:Application/aFFMotor/affmotor.c **** void affmotor_updatePwmDC( /*uint8_t direction,*/ int16_t cfMagnitude )
+  85:Application/aFFMotor/affmotor.c **** {
+ 279              		.loc 1 85 0
+ 280              		.cfi_startproc
+ 281              		@ args = 0, pretend = 0, frame = 8
+ 282              		@ frame_needed = 1, uses_anonymous_args = 0
+ 283 0000 80B5     		push	{r7, lr}
+ 284              	.LCFI12:
+ 285              		.cfi_def_cfa_offset 8
+ 286              		.cfi_offset 7, -8
+ 287              		.cfi_offset 14, -4
+ 288 0002 82B0     		sub	sp, sp, #8
+ 289              	.LCFI13:
+ 290              		.cfi_def_cfa_offset 16
+ 291 0004 00AF     		add	r7, sp, #0
+ 292              	.LCFI14:
+ 293              		.cfi_def_cfa_register 7
+ 294 0006 0346     		mov	r3, r0
+ 295 0008 FB80     		strh	r3, [r7, #6]	@ movhi
+  86:Application/aFFMotor/affmotor.c **** 	/*save value in case is needed later after a rotation direction change*/
+  87:Application/aFFMotor/affmotor.c **** 	lastUnprocessedMagnitude = cfMagnitude;
+ 296              		.loc 1 87 0
+ 297 000a 424A     		ldr	r2, .L28
+ 298 000c FB88     		ldrh	r3, [r7, #6]	@ movhi
+ 299 000e 1380     		strh	r3, [r2]	@ movhi
+  88:Application/aFFMotor/affmotor.c **** 
+  89:Application/aFFMotor/affmotor.c **** 	//int16_t pwmDeadZone = FFMotorPWMPeriod/PWM_DEADZONE_DIVIDER;
+  90:Application/aFFMotor/affmotor.c **** 	/*limit value to max range [-10000 .. 10000] this is the range of the values received via usb*/
+  91:Application/aFFMotor/affmotor.c **** 	if ( cfMagnitude > 10000 )
+ 300              		.loc 1 91 0
+ 301 0010 B7F90630 		ldrsh	r3, [r7, #6]
+ 302 0014 42F21072 		movw	r2, #10000
+ 303 0018 9342     		cmp	r3, r2
+ 304 001a 03DD     		ble	.L19
+  92:Application/aFFMotor/affmotor.c **** 	{
+  93:Application/aFFMotor/affmotor.c **** 		cfMagnitude = 10000;
+ 305              		.loc 1 93 0
+ 306 001c 42F21073 		movw	r3, #10000
+ 307 0020 FB80     		strh	r3, [r7, #6]	@ movhi
+ 308 0022 07E0     		b	.L20
+ 309              	.L19:
+  94:Application/aFFMotor/affmotor.c **** 	}
+  95:Application/aFFMotor/affmotor.c **** 	else if ( cfMagnitude < ( -10000 ) )
+ 310              		.loc 1 95 0
+ 311 0024 B7F90630 		ldrsh	r3, [r7, #6]
+ 312 0028 3B4A     		ldr	r2, .L28+4
+ 313 002a 9342     		cmp	r3, r2
+ 314 002c 02DA     		bge	.L20
+  96:Application/aFFMotor/affmotor.c **** 	{
+  97:Application/aFFMotor/affmotor.c **** 		cfMagnitude = -10000;
+ 315              		.loc 1 97 0
+ 316 002e 4DF6F003 		movw	r3, #55536
+ 317 0032 FB80     		strh	r3, [r7, #6]	@ movhi
+ 318              	.L20:
+  98:Application/aFFMotor/affmotor.c **** 	}
+ARM GAS  /tmp/ccOlSfs6.s 			page 8
+
+
+  99:Application/aFFMotor/affmotor.c **** 	/*limit the min value*/
+ 100:Application/aFFMotor/affmotor.c **** 	// else if ( ( cfMagnitude < pwmDeadZone ) && ( cfMagnitude > ( (int16_t)0 - pwmDeadZone ) ) )
+ 101:Application/aFFMotor/affmotor.c **** 	// {/*value is in the range [-min:0:min]*/
+ 102:Application/aFFMotor/affmotor.c **** 	// 	cfMagnitude = 0u;
+ 103:Application/aFFMotor/affmotor.c **** 	// }
+ 104:Application/aFFMotor/affmotor.c **** 	else{/*value is in normal range: no limiting needed*/}
+ 105:Application/aFFMotor/affmotor.c **** 
+ 106:Application/aFFMotor/affmotor.c **** 	/*scale magnitude from range [-10000 .. 0 .. +10000] to [-FFMotorPWMPeriod .. 0 .. +FFMotorPWMPeri
+ 107:Application/aFFMotor/affmotor.c **** 	cfMagnitude = (int16_t) ( ( (int32_t)cfMagnitude * FFMotorPWMPeriod ) / 10000 );	
+ 319              		.loc 1 107 0
+ 320 0034 B7F90630 		ldrsh	r3, [r7, #6]
+ 321 0038 4FF46162 		mov	r2, #3600
+ 322 003c 02FB03F3 		mul	r3, r2, r3
+ 323 0040 364A     		ldr	r2, .L28+8
+ 324 0042 82FB0312 		smull	r1, r2, r2, r3
+ 325 0046 1213     		asrs	r2, r2, #12
+ 326 0048 DB17     		asrs	r3, r3, #31
+ 327 004a D31A     		subs	r3, r2, r3
+ 328 004c FB80     		strh	r3, [r7, #6]	@ movhi
+ 108:Application/aFFMotor/affmotor.c **** 	
+ 109:Application/aFFMotor/affmotor.c **** 	if ( ( (cfMagnitude > 0 ) && ( cfMagnitudeOld < 0 ) ) ||
+ 329              		.loc 1 109 0
+ 330 004e B7F90630 		ldrsh	r3, [r7, #6]
+ 331 0052 002B     		cmp	r3, #0
+ 332 0054 04DD     		ble	.L21
+ 333              		.loc 1 109 0 is_stmt 0 discriminator 1
+ 334 0056 324B     		ldr	r3, .L28+12
+ 335 0058 B3F90030 		ldrsh	r3, [r3]
+ 336 005c 002B     		cmp	r3, #0
+ 337 005e 08DB     		blt	.L22
+ 338              	.L21:
+ 339              		.loc 1 109 0 discriminator 3
+ 340 0060 B7F90630 		ldrsh	r3, [r7, #6]
+ 341 0064 002B     		cmp	r3, #0
+ 342 0066 15DA     		bge	.L23
+ 110:Application/aFFMotor/affmotor.c **** 		 ( (cfMagnitude < 0 ) && ( cfMagnitudeOld > 0 ) ) )
+ 343              		.loc 1 110 0 is_stmt 1
+ 344 0068 2D4B     		ldr	r3, .L28+12
+ 345 006a B3F90030 		ldrsh	r3, [r3]
+ 346 006e 002B     		cmp	r3, #0
+ 347 0070 10DD     		ble	.L23
+ 348              	.L22:
+ 111:Application/aFFMotor/affmotor.c **** 	{/*rotation direction change*/
+ 112:Application/aFFMotor/affmotor.c **** 		/*set pwm to 0*/
+ 113:Application/aFFMotor/affmotor.c **** 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0u);
+ 349              		.loc 1 113 0
+ 350 0072 2C4B     		ldr	r3, .L28+16
+ 351 0074 1B68     		ldr	r3, [r3]
+ 352 0076 0022     		movs	r2, #0
+ 353 0078 5A63     		str	r2, [r3, #52]
+ 114:Application/aFFMotor/affmotor.c **** 		/*clear direction pins*/
+ 115:Application/aFFMotor/affmotor.c **** 		HAL_GPIO_WritePin(GPIOA, FFMotorRight_EnPin, GPIO_PIN_RESET);
+ 354              		.loc 1 115 0
+ 355 007a 0022     		movs	r2, #0
+ 356 007c 2021     		movs	r1, #32
+ 357 007e 2A48     		ldr	r0, .L28+20
+ 358 0080 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ARM GAS  /tmp/ccOlSfs6.s 			page 9
+
+
+ 116:Application/aFFMotor/affmotor.c **** 		HAL_GPIO_WritePin(GPIOA, FFMotorLeft_EnPin, GPIO_PIN_RESET);
+ 359              		.loc 1 116 0
+ 360 0084 0022     		movs	r2, #0
+ 361 0086 1021     		movs	r1, #16
+ 362 0088 2748     		ldr	r0, .L28+20
+ 363 008a FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 117:Application/aFFMotor/affmotor.c **** 		/*start cool off timer*/
+ 118:Application/aFFMotor/affmotor.c **** 		directionChangeTimer = 9u; /*time in ms as the variable in decremented in 1ms task*/
+ 364              		.loc 1 118 0
+ 365 008e 274B     		ldr	r3, .L28+24
+ 366 0090 0922     		movs	r2, #9
+ 367 0092 1A70     		strb	r2, [r3]
+ 368              	.L23:
+ 119:Application/aFFMotor/affmotor.c **** 	}
+ 120:Application/aFFMotor/affmotor.c **** 
+ 121:Application/aFFMotor/affmotor.c **** 	cfMagnitudeOld = cfMagnitude;
+ 369              		.loc 1 121 0
+ 370 0094 224A     		ldr	r2, .L28+12
+ 371 0096 FB88     		ldrh	r3, [r7, #6]	@ movhi
+ 372 0098 1380     		strh	r3, [r2]	@ movhi
+ 122:Application/aFFMotor/affmotor.c **** 
+ 123:Application/aFFMotor/affmotor.c **** 	if ( 0u == directionChangeTimer )
+ 373              		.loc 1 123 0
+ 374 009a 244B     		ldr	r3, .L28+24
+ 375 009c 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 376 009e 002B     		cmp	r3, #0
+ 377 00a0 34D1     		bne	.L27
+ 124:Application/aFFMotor/affmotor.c **** 	{/*no rotation direction change was just requested*/
+ 125:Application/aFFMotor/affmotor.c **** 		if ( cfMagnitude > 0 )
+ 378              		.loc 1 125 0
+ 379 00a2 B7F90630 		ldrsh	r3, [r7, #6]
+ 380 00a6 002B     		cmp	r3, #0
+ 381 00a8 0DDD     		ble	.L25
+ 126:Application/aFFMotor/affmotor.c **** 		{/*try to turn the wheel to the left*/
+ 127:Application/aFFMotor/affmotor.c **** 			HAL_GPIO_WritePin(GPIOA, FFMotorRight_EnPin, GPIO_PIN_RESET);
+ 382              		.loc 1 127 0
+ 383 00aa 0022     		movs	r2, #0
+ 384 00ac 2021     		movs	r1, #32
+ 385 00ae 1E48     		ldr	r0, .L28+20
+ 386 00b0 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 128:Application/aFFMotor/affmotor.c **** 			HAL_GPIO_WritePin(GPIOA, FFMotorLeft_EnPin, GPIO_PIN_SET);
+ 387              		.loc 1 128 0
+ 388 00b4 0122     		movs	r2, #1
+ 389 00b6 1021     		movs	r1, #16
+ 390 00b8 1B48     		ldr	r0, .L28+20
+ 391 00ba FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 129:Application/aFFMotor/affmotor.c **** 			pwmPulseVal = cfMagnitude;
+ 392              		.loc 1 129 0
+ 393 00be FA88     		ldrh	r2, [r7, #6]
+ 394 00c0 1B4B     		ldr	r3, .L28+28
+ 395 00c2 1A80     		strh	r2, [r3]	@ movhi
+ 396 00c4 0EE0     		b	.L26
+ 397              	.L25:
+ 130:Application/aFFMotor/affmotor.c **** 		}
+ 131:Application/aFFMotor/affmotor.c **** 		else
+ 132:Application/aFFMotor/affmotor.c **** 		{/*try to turn the wheel to the right*/
+ 133:Application/aFFMotor/affmotor.c **** 			HAL_GPIO_WritePin(GPIOA, FFMotorLeft_EnPin, GPIO_PIN_RESET);
+ARM GAS  /tmp/ccOlSfs6.s 			page 10
+
+
+ 398              		.loc 1 133 0
+ 399 00c6 0022     		movs	r2, #0
+ 400 00c8 1021     		movs	r1, #16
+ 401 00ca 1748     		ldr	r0, .L28+20
+ 402 00cc FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 134:Application/aFFMotor/affmotor.c **** 			HAL_GPIO_WritePin(GPIOA, FFMotorRight_EnPin, GPIO_PIN_SET);
+ 403              		.loc 1 134 0
+ 404 00d0 0122     		movs	r2, #1
+ 405 00d2 2021     		movs	r1, #32
+ 406 00d4 1448     		ldr	r0, .L28+20
+ 407 00d6 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 135:Application/aFFMotor/affmotor.c **** 			pwmPulseVal = (int16_t)0 - cfMagnitude;
+ 408              		.loc 1 135 0
+ 409 00da FB88     		ldrh	r3, [r7, #6]
+ 410 00dc 5B42     		negs	r3, r3
+ 411 00de 9AB2     		uxth	r2, r3
+ 412 00e0 134B     		ldr	r3, .L28+28
+ 413 00e2 1A80     		strh	r2, [r3]	@ movhi
+ 414              	.L26:
+ 136:Application/aFFMotor/affmotor.c **** 		}
+ 137:Application/aFFMotor/affmotor.c **** 		/*scale to max pulse val*/
+ 138:Application/aFFMotor/affmotor.c **** 		pwmPulseVal = (uint16_t) ( ( (uint32_t)pwmPulseVal * FFMotorPulseMaxVal ) / 100 ) + 1;			
+ 415              		.loc 1 138 0
+ 416 00e4 124B     		ldr	r3, .L28+28
+ 417 00e6 1B88     		ldrh	r3, [r3]
+ 418 00e8 1A46     		mov	r2, r3
+ 419 00ea 1346     		mov	r3, r2
+ 420 00ec 1B01     		lsls	r3, r3, #4
+ 421 00ee 9B1A     		subs	r3, r3, r2
+ 422 00f0 104A     		ldr	r2, .L28+32
+ 423 00f2 A2FB0323 		umull	r2, r3, r2, r3
+ 424 00f6 5B09     		lsrs	r3, r3, #5
+ 425 00f8 9BB2     		uxth	r3, r3
+ 426 00fa 0133     		adds	r3, r3, #1
+ 427 00fc 9AB2     		uxth	r2, r3
+ 428 00fe 0C4B     		ldr	r3, .L28+28
+ 429 0100 1A80     		strh	r2, [r3]	@ movhi
+ 139:Application/aFFMotor/affmotor.c **** 		/*update PWM pulse (duty ratio)*/
+ 140:Application/aFFMotor/affmotor.c **** 		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pwmPulseVal);
+ 430              		.loc 1 140 0
+ 431 0102 0B4B     		ldr	r3, .L28+28
+ 432 0104 1A88     		ldrh	r2, [r3]
+ 433 0106 074B     		ldr	r3, .L28+16
+ 434 0108 1B68     		ldr	r3, [r3]
+ 435 010a 5A63     		str	r2, [r3, #52]
+ 436              	.L27:
+ 141:Application/aFFMotor/affmotor.c **** 		//todo add a pin for right motor
+ 142:Application/aFFMotor/affmotor.c **** 	}
+ 143:Application/aFFMotor/affmotor.c **** 	
+ 144:Application/aFFMotor/affmotor.c **** }
+ 437              		.loc 1 144 0
+ 438 010c 00BF     		nop
+ 439 010e 0837     		adds	r7, r7, #8
+ 440              	.LCFI15:
+ 441              		.cfi_def_cfa_offset 8
+ 442 0110 BD46     		mov	sp, r7
+ 443              	.LCFI16:
+ARM GAS  /tmp/ccOlSfs6.s 			page 11
+
+
+ 444              		.cfi_def_cfa_register 13
+ 445              		@ sp needed
+ 446 0112 80BD     		pop	{r7, pc}
+ 447              	.L29:
+ 448              		.align	2
+ 449              	.L28:
+ 450 0114 00000000 		.word	lastUnprocessedMagnitude
+ 451 0118 F0D8FFFF 		.word	-10000
+ 452 011c AD8BDB68 		.word	1759218605
+ 453 0120 00000000 		.word	cfMagnitudeOld
+ 454 0124 00000000 		.word	htim3
+ 455 0128 00080140 		.word	1073809408
+ 456 012c 00000000 		.word	directionChangeTimer
+ 457 0130 00000000 		.word	pwmPulseVal
+ 458 0134 1F85EB51 		.word	1374389535
+ 459              		.cfi_endproc
+ 460              	.LFE71:
+ 462              		.section	.text.affmotor_task,"ax",%progbits
+ 463              		.align	1
+ 464              		.global	affmotor_task
+ 465              		.syntax unified
+ 466              		.thumb
+ 467              		.thumb_func
+ 468              		.fpu softvfp
+ 470              	affmotor_task:
+ 471              	.LFB72:
+ 145:Application/aFFMotor/affmotor.c **** 
+ 146:Application/aFFMotor/affmotor.c **** // int16_t testSpeed;
+ 147:Application/aFFMotor/affmotor.c **** // int16_t testSpeedOld;
+ 148:Application/aFFMotor/affmotor.c **** void affmotor_task( void )
+ 149:Application/aFFMotor/affmotor.c **** {
+ 472              		.loc 1 149 0
+ 473              		.cfi_startproc
+ 474              		@ args = 0, pretend = 0, frame = 0
+ 475              		@ frame_needed = 1, uses_anonymous_args = 0
+ 476 0000 80B5     		push	{r7, lr}
+ 477              	.LCFI17:
+ 478              		.cfi_def_cfa_offset 8
+ 479              		.cfi_offset 7, -8
+ 480              		.cfi_offset 14, -4
+ 481 0002 00AF     		add	r7, sp, #0
+ 482              	.LCFI18:
+ 483              		.cfi_def_cfa_register 7
+ 150:Application/aFFMotor/affmotor.c **** 	if ( directionChangeTimer > 0u )
+ 484              		.loc 1 150 0
+ 485 0004 094B     		ldr	r3, .L34
+ 486 0006 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 487 0008 002B     		cmp	r3, #0
+ 488 000a 06D0     		beq	.L31
+ 151:Application/aFFMotor/affmotor.c **** 	{
+ 152:Application/aFFMotor/affmotor.c **** 		directionChangeTimer--;
+ 489              		.loc 1 152 0
+ 490 000c 074B     		ldr	r3, .L34
+ 491 000e 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 492 0010 013B     		subs	r3, r3, #1
+ 493 0012 DAB2     		uxtb	r2, r3
+ 494 0014 054B     		ldr	r3, .L34
+ARM GAS  /tmp/ccOlSfs6.s 			page 12
+
+
+ 495 0016 1A70     		strb	r2, [r3]
+ 153:Application/aFFMotor/affmotor.c **** 	}
+ 154:Application/aFFMotor/affmotor.c **** 	else
+ 155:Application/aFFMotor/affmotor.c **** 	{/*time out*/
+ 156:Application/aFFMotor/affmotor.c **** 		/*call update pwm as the last command was not processed as the direction was changed*/
+ 157:Application/aFFMotor/affmotor.c **** 		affmotor_updatePwmDC(lastUnprocessedMagnitude);
+ 158:Application/aFFMotor/affmotor.c **** 	}
+ 159:Application/aFFMotor/affmotor.c **** 
+ 160:Application/aFFMotor/affmotor.c **** 	// /*TODO - comment this test code*/
+ 161:Application/aFFMotor/affmotor.c **** 	// if (  testSpeedOld != testSpeed )
+ 162:Application/aFFMotor/affmotor.c **** 	// {
+ 163:Application/aFFMotor/affmotor.c **** 	// 	if ( 0 == testSpeedOld )
+ 164:Application/aFFMotor/affmotor.c **** 	// 	{
+ 165:Application/aFFMotor/affmotor.c **** 	// 		affmotor_start();
+ 166:Application/aFFMotor/affmotor.c **** 	// 	}
+ 167:Application/aFFMotor/affmotor.c **** 	// 	else if ( 0 == testSpeed )
+ 168:Application/aFFMotor/affmotor.c **** 	// 	{
+ 169:Application/aFFMotor/affmotor.c **** 	// 		affmotor_stop();
+ 170:Application/aFFMotor/affmotor.c **** 	// 	}
+ 171:Application/aFFMotor/affmotor.c **** 	// 	if ( 0 != testSpeed  )
+ 172:Application/aFFMotor/affmotor.c **** 	// 	{
+ 173:Application/aFFMotor/affmotor.c **** 	// 		affmotor_updatePwmDC(testSpeed);
+ 174:Application/aFFMotor/affmotor.c **** 	// 	}
+ 175:Application/aFFMotor/affmotor.c **** 	// }
+ 176:Application/aFFMotor/affmotor.c **** 	// testSpeedOld = testSpeed;
+ 177:Application/aFFMotor/affmotor.c **** }
+ 496              		.loc 1 177 0
+ 497 0018 05E0     		b	.L33
+ 498              	.L31:
+ 157:Application/aFFMotor/affmotor.c **** 	}
+ 499              		.loc 1 157 0
+ 500 001a 054B     		ldr	r3, .L34+4
+ 501 001c B3F90030 		ldrsh	r3, [r3]
+ 502 0020 1846     		mov	r0, r3
+ 503 0022 FFF7FEFF 		bl	affmotor_updatePwmDC
+ 504              	.L33:
+ 505              		.loc 1 177 0
+ 506 0026 00BF     		nop
+ 507 0028 80BD     		pop	{r7, pc}
+ 508              	.L35:
+ 509 002a 00BF     		.align	2
+ 510              	.L34:
+ 511 002c 00000000 		.word	directionChangeTimer
+ 512 0030 00000000 		.word	lastUnprocessedMagnitude
+ 513              		.cfi_endproc
+ 514              	.LFE72:
+ 516              		.text
+ 517              	.Letext0:
+ 518              		.file 2 "/usr/include/newlib/machine/_default_types.h"
+ 519              		.file 3 "/usr/include/newlib/sys/_stdint.h"
+ 520              		.file 4 "Drivers/CMSIS/Include/core_cm3.h"
+ 521              		.file 5 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h"
+ 522              		.file 6 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h"
+ 523              		.file 7 "/usr/include/newlib/sys/lock.h"
+ 524              		.file 8 "/usr/include/newlib/sys/_types.h"
+ 525              		.file 9 "/usr/lib/gcc/arm-none-eabi/7.3.1/include/stddef.h"
+ 526              		.file 10 "/usr/include/newlib/sys/reent.h"
+ARM GAS  /tmp/ccOlSfs6.s 			page 13
+
+
+ 527              		.file 11 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h"
+ 528              		.file 12 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio.h"
+ 529              		.file 13 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma.h"
+ 530              		.file 14 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h"
+ 531              		.file 15 "Application/aUSB/ausb.h"
+ARM GAS  /tmp/ccOlSfs6.s 			page 14
+
+
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 affmotor.c
+     /tmp/ccOlSfs6.s:16     .bss.pwmPulseVal:0000000000000000 $d
+     /tmp/ccOlSfs6.s:19     .bss.pwmPulseVal:0000000000000000 pwmPulseVal
+     /tmp/ccOlSfs6.s:24     .bss.directionChangeTimer:0000000000000000 directionChangeTimer
+     /tmp/ccOlSfs6.s:25     .bss.directionChangeTimer:0000000000000000 $d
+     /tmp/ccOlSfs6.s:27     .bss.lastUnprocessedMagnitude:0000000000000000 $d
+     /tmp/ccOlSfs6.s:30     .bss.lastUnprocessedMagnitude:0000000000000000 lastUnprocessedMagnitude
+     /tmp/ccOlSfs6.s:35     .bss.directionVal:0000000000000000 directionVal
+     /tmp/ccOlSfs6.s:36     .bss.directionVal:0000000000000000 $d
+     /tmp/ccOlSfs6.s:38     .text.affmotor_init:0000000000000000 $t
+     /tmp/ccOlSfs6.s:45     .text.affmotor_init:0000000000000000 affmotor_init
+     /tmp/ccOlSfs6.s:99     .text.affmotor_enable:0000000000000000 affmotor_enable
+     /tmp/ccOlSfs6.s:84     .text.affmotor_init:0000000000000024 $d
+     /tmp/ccOlSfs6.s:92     .text.affmotor_enable:0000000000000000 $t
+     /tmp/ccOlSfs6.s:128    .text.affmotor_disable:0000000000000000 $t
+     /tmp/ccOlSfs6.s:135    .text.affmotor_disable:0000000000000000 affmotor_disable
+     /tmp/ccOlSfs6.s:165    .text.affmotor_disable:000000000000001c $d
+     /tmp/ccOlSfs6.s:170    .rodata:0000000000000000 $d
+     /tmp/ccOlSfs6.s:174    .text.affmotor_start:0000000000000000 $t
+     /tmp/ccOlSfs6.s:181    .text.affmotor_start:0000000000000000 affmotor_start
+     /tmp/ccOlSfs6.s:213    .text.affmotor_start:0000000000000020 $d
+     /tmp/ccOlSfs6.s:219    .text.affmotor_stop:0000000000000000 $t
+     /tmp/ccOlSfs6.s:226    .text.affmotor_stop:0000000000000000 affmotor_stop
+     /tmp/ccOlSfs6.s:258    .text.affmotor_stop:0000000000000020 $d
+     /tmp/ccOlSfs6.s:264    .bss.cfMagnitudeOld:0000000000000000 $d
+     /tmp/ccOlSfs6.s:267    .bss.cfMagnitudeOld:0000000000000000 cfMagnitudeOld
+     /tmp/ccOlSfs6.s:270    .text.affmotor_updatePwmDC:0000000000000000 $t
+     /tmp/ccOlSfs6.s:277    .text.affmotor_updatePwmDC:0000000000000000 affmotor_updatePwmDC
+     /tmp/ccOlSfs6.s:450    .text.affmotor_updatePwmDC:0000000000000114 $d
+     /tmp/ccOlSfs6.s:463    .text.affmotor_task:0000000000000000 $t
+     /tmp/ccOlSfs6.s:470    .text.affmotor_task:0000000000000000 affmotor_task
+     /tmp/ccOlSfs6.s:511    .text.affmotor_task:000000000000002c $d
+
+UNDEFINED SYMBOLS
+HAL_GPIO_WritePin
+HAL_TIM_PWM_Start
+_Error_Handler
+htim3
+HAL_TIM_PWM_Stop

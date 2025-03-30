@@ -1,0 +1,3 @@
+la regenerare soft din STM32CubeMx se suprascriu cateva fisiere printre care si usbd_hid.c (cu report descriptorii de joystick)
+ideal e sa regenerezi in alt folder si apoi sa copiezi doar modificarile in folderul original
+

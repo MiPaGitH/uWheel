@@ -1,0 +1,126 @@
+ARM GAS  /tmp/ccUf2X5B.s 			page 1
+
+
+   1              		.cpu cortex-m3
+   2              		.eabi_attribute 20, 1
+   3              		.eabi_attribute 21, 1
+   4              		.eabi_attribute 23, 3
+   5              		.eabi_attribute 24, 1
+   6              		.eabi_attribute 25, 1
+   7              		.eabi_attribute 26, 1
+   8              		.eabi_attribute 30, 6
+   9              		.eabi_attribute 34, 1
+  10              		.eabi_attribute 18, 4
+  11              		.file	"application_init.c"
+  12              		.text
+  13              	.Ltext0:
+  14              		.cfi_sections	.debug_frame
+  15              		.section	.text.application_init,"ax",%progbits
+  16              		.align	1
+  17              		.global	application_init
+  18              		.syntax unified
+  19              		.thumb
+  20              		.thumb_func
+  21              		.fpu softvfp
+  23              	application_init:
+  24              	.LFB66:
+  25              		.file 1 "Application/application_init.c"
+   1:Application/application_init.c **** /*
+   2:Application/application_init.c ****  * application_init.c
+   3:Application/application_init.c ****  *
+   4:Application/application_init.c ****  *  Created on: FEB 01, 2014
+   5:Application/application_init.c ****  *      Author: mircea.patras
+   6:Application/application_init.c ****  *
+   7:Application/application_init.c ****  *  Description
+   8:Application/application_init.c ****  *  	Implements application specific initializations
+   9:Application/application_init.c ****  *
+  10:Application/application_init.c ****  *  History
+  11:Application/application_init.c ****  *  	FEB 01, 2014 file creation
+  12:Application/application_init.c ****  *  	MAR 16, 2014 added initialization routines for stepper motor
+  13:Application/application_init.c ****  *  	SEP 27, 2014 added initialization routine for drill motor RPM measurement with PhotoDetector (
+  14:Application/application_init.c ****  */
+  15:Application/application_init.c **** 
+  16:Application/application_init.c **** #include "application_init.h"
+  17:Application/application_init.c **** 
+  18:Application/application_init.c **** /*private prototypes*/
+  19:Application/application_init.c **** //static void application_perclkInit( void ); /*Note: periferal clocks are initialized by STMCubeMx
+  20:Application/application_init.c **** 
+  21:Application/application_init.c **** /**
+  22:Application/application_init.c **** * \brief Initializes application modules
+  23:Application/application_init.c **** */
+  24:Application/application_init.c **** void application_init(void)
+  25:Application/application_init.c **** {
+  26              		.loc 1 25 0
+  27              		.cfi_startproc
+  28              		@ args = 0, pretend = 0, frame = 0
+  29              		@ frame_needed = 1, uses_anonymous_args = 0
+  30 0000 80B5     		push	{r7, lr}
+  31              	.LCFI0:
+  32              		.cfi_def_cfa_offset 8
+  33              		.cfi_offset 7, -8
+ARM GAS  /tmp/ccUf2X5B.s 			page 2
+
+
+  34              		.cfi_offset 14, -4
+  35 0002 00AF     		add	r7, sp, #0
+  36              	.LCFI1:
+  37              		.cfi_def_cfa_register 7
+  26:Application/application_init.c **** 	//application_perclkInit(); /*Note: periferal clocks are initialized by STMCubeMx generated module
+  27:Application/application_init.c **** 
+  28:Application/application_init.c **** 	/*application modules*/
+  29:Application/application_init.c **** 	usbmain_init();
+  38              		.loc 1 29 0
+  39 0004 FFF7FEFF 		bl	usbmain_init
+  30:Application/application_init.c **** 	aleds_init();
+  40              		.loc 1 30 0
+  41 0008 FFF7FEFF 		bl	aleds_init
+  31:Application/application_init.c **** 	abuttons_init();
+  42              		.loc 1 31 0
+  43 000c FFF7FEFF 		bl	abuttons_init
+  32:Application/application_init.c **** 	//amagenc_init();
+  33:Application/application_init.c **** 	amagencSpi_init();
+  44              		.loc 1 33 0
+  45 0010 FFF7FEFF 		bl	amagencSpi_init
+  34:Application/application_init.c **** 	apedals_init();
+  46              		.loc 1 34 0
+  47 0014 FFF7FEFF 		bl	apedals_init
+  35:Application/application_init.c **** 	affmotor_init();
+  48              		.loc 1 35 0
+  49 0018 FFF7FEFF 		bl	affmotor_init
+  36:Application/application_init.c **** 
+  37:Application/application_init.c **** }
+  50              		.loc 1 37 0
+  51 001c 00BF     		nop
+  52 001e 80BD     		pop	{r7, pc}
+  53              		.cfi_endproc
+  54              	.LFE66:
+  56              		.text
+  57              	.Letext0:
+  58              		.file 2 "Scheduler/aSchTT_types.h"
+  59              		.file 3 "Application/aLeds/aleds.h"
+  60              		.file 4 "Application/aButtons/abuttons.h"
+  61              		.file 5 "/usr/include/newlib/machine/_default_types.h"
+  62              		.file 6 "/usr/include/newlib/sys/_stdint.h"
+  63              		.file 7 "Drivers/CMSIS/Include/core_cm3.h"
+  64              		.file 8 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h"
+  65              		.file 9 "/usr/include/newlib/sys/lock.h"
+  66              		.file 10 "/usr/include/newlib/sys/_types.h"
+  67              		.file 11 "/usr/lib/gcc/arm-none-eabi/7.3.1/include/stddef.h"
+  68              		.file 12 "/usr/include/newlib/sys/reent.h"
+  69              		.file 13 "Application/aUSB/ausb.h"
+  70              		.file 14 "Application/aMagEnc/amagencSpi.h"
+ARM GAS  /tmp/ccUf2X5B.s 			page 3
+
+
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 application_init.c
+     /tmp/ccUf2X5B.s:16     .text.application_init:0000000000000000 $t
+     /tmp/ccUf2X5B.s:23     .text.application_init:0000000000000000 application_init
+
+UNDEFINED SYMBOLS
+usbmain_init
+aleds_init
+abuttons_init
+amagencSpi_init
+apedals_init
+affmotor_init

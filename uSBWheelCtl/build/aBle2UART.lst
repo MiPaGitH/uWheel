@@ -1,0 +1,1777 @@
+ARM GAS  /tmp/ccEMlEbr.s 			page 1
+
+
+   1              		.cpu cortex-m3
+   2              		.eabi_attribute 20, 1
+   3              		.eabi_attribute 21, 1
+   4              		.eabi_attribute 23, 3
+   5              		.eabi_attribute 24, 1
+   6              		.eabi_attribute 25, 1
+   7              		.eabi_attribute 26, 1
+   8              		.eabi_attribute 30, 6
+   9              		.eabi_attribute 34, 1
+  10              		.eabi_attribute 18, 4
+  11              		.file	"aBle2UART.c"
+  12              		.text
+  13              	.Ltext0:
+  14              		.cfi_sections	.debug_frame
+  15              		.comm	UartHandle,64,4
+  16              		.global	bleSetupScript
+  17              		.section	.rodata.bleSetupScript,"a",%progbits
+  18              		.align	2
+  21              	bleSetupScript:
+  22 0000 30332424 		.ascii	"03$$$02c\01503ci\01514chw,0028,0100\015\000"
+  22      24303263 
+  22      0D303363 
+  22      690D3134 
+  22      6368772C 
+  23              		.section	.bss.aTxBuffer,"aw",%nobits
+  24              		.align	2
+  27              	aTxBuffer:
+  28 0000 00000000 		.space	14
+  28      00000000 
+  28      00000000 
+  28      0000
+  29              		.section	.bss.aRxBuffer,"aw",%nobits
+  30              		.align	2
+  33              	aRxBuffer:
+  34 0000 00000000 		.space	24
+  34      00000000 
+  34      00000000 
+  34      00000000 
+  34      00000000 
+  35              		.section	.bss.cmdLength,"aw",%nobits
+  38              	cmdLength:
+  39 0000 00       		.space	1
+  40              		.comm	sIdx,1,1
+  41              		.comm	evBleRx,1,1
+  42              		.comm	evTimeout,1,1
+  43              		.comm	bleTim,2,2
+  44              		.comm	aBleState,1,1
+  45              		.section	.rodata
+  46              		.align	2
+  47              	.LC0:
+  48 0000 4170706C 		.ascii	"Application/aPedals/aBle2UART.c\000"
+  48      69636174 
+  48      696F6E2F 
+  48      61506564 
+  48      616C732F 
+  49              		.section	.text.aBle2UART_init,"ax",%progbits
+  50              		.align	1
+ARM GAS  /tmp/ccEMlEbr.s 			page 2
+
+
+  51              		.global	aBle2UART_init
+  52              		.syntax unified
+  53              		.thumb
+  54              		.thumb_func
+  55              		.fpu softvfp
+  57              	aBle2UART_init:
+  58              	.LFB66:
+  59              		.file 1 "Application/aPedals/aBle2UART.c"
+   1:Application/aPedals/aBle2UART.c **** /*
+   2:Application/aPedals/aBle2UART.c ****  * aBle2Uart.c
+   3:Application/aPedals/aBle2UART.c ****  *
+   4:Application/aPedals/aBle2UART.c ****  *  Created on: Sep 23, 2015
+   5:Application/aPedals/aBle2UART.c ****  *      Author: M
+   6:Application/aPedals/aBle2UART.c ****  *  Description:
+   7:Application/aPedals/aBle2UART.c ****  *  	handles the Ble - UART transceiver to communicate with the pedals unit 
+   8:Application/aPedals/aBle2UART.c ****  */
+   9:Application/aPedals/aBle2UART.c **** 
+  10:Application/aPedals/aBle2UART.c **** #include "aBle2UART.h"
+  11:Application/aPedals/aBle2UART.c **** #include "aleds.h"
+  12:Application/aPedals/aBle2UART.c **** #include "apedals.h"
+  13:Application/aPedals/aBle2UART.c **** 
+  14:Application/aPedals/aBle2UART.c **** UART_HandleTypeDef UartHandle;
+  15:Application/aPedals/aBle2UART.c **** /*commands:
+  16:Application/aPedals/aBle2UART.c ****   a. $$$ - enter command mode
+  17:Application/aPedals/aBle2UART.c ****   b. c - try to connect to the last bonded device
+  18:Application/aPedals/aBle2UART.c ****   c. ci - start client operation on the RN4870/71
+  19:Application/aPedals/aBle2UART.c ****   d. chw - writes the content of the client service characteristic from the remote device by addres
+  20:Application/aPedals/aBle2UART.c **** */
+  21:Application/aPedals/aBle2UART.c **** const uint8_t bleSetupScript[] = "03$$$02c\r03ci\r14chw,0028,0100\r";
+  22:Application/aPedals/aBle2UART.c **** /* Buffer used for transmission*/
+  23:Application/aPedals/aBle2UART.c **** static uint8_t aTxBuffer[14]; /*last command has 14 bytes and the rest are shorter*/
+  24:Application/aPedals/aBle2UART.c **** 
+  25:Application/aPedals/aBle2UART.c **** /* rx Buffer - Length calculation:
+  26:Application/aPedals/aBle2UART.c ****     a. reboot message: %REBOOT%% - 9 fixed bytes
+  27:Application/aPedals/aBle2UART.c ****     b. unknown device message: Unknown Device% - 15 fixed bytes
+  28:Application/aPedals/aBle2UART.c ****     c. response to $$$ command: CMD>  - 5 fixed bytes (4 plus last char is space)
+  29:Application/aPedals/aBle2UART.c ****     d. response to c\r command: 
+  30:Application/aPedals/aBle2UART.c ****         Trying\r\n - 8 fixed bytes
+  31:Application/aPedals/aBle2UART.c ****         %CONNECT,0,adr12Bytes% - 24 bytes
+  32:Application/aPedals/aBle2UART.c ****         %SECURED% - 9 bytes
+  33:Application/aPedals/aBle2UART.c ****         ERR  - 3 bytes
+  34:Application/aPedals/aBle2UART.c ****     e. response to ci\r command: AOK\r\nCMD> - 10 bytes ( including a space at the end)
+  35:Application/aPedals/aBle2UART.c ****     f. response to chw,****,0100\r: AOK\r\nCMD> - 10 bytes ( including a space at the end)
+  36:Application/aPedals/aBle2UART.c ****     g. notification message: %NOTI,0027,BY1BY2...BYn% - 12 fixed bytes (including last %) + 2*BYn *
+  37:Application/aPedals/aBle2UART.c **** static uint8_t aRxBuffer[24];
+  38:Application/aPedals/aBle2UART.c **** volatile static uint8_t cmdLength;
+  39:Application/aPedals/aBle2UART.c **** uint8_t sIdx; /*index to parse the bleSetupScript*/
+  40:Application/aPedals/aBle2UART.c **** uint8_t evBleRx;
+  41:Application/aPedals/aBle2UART.c **** uint8_t evTimeout;
+  42:Application/aPedals/aBle2UART.c **** uint16_t bleTim;
+  43:Application/aPedals/aBle2UART.c **** typedef enum
+  44:Application/aPedals/aBle2UART.c **** {
+  45:Application/aPedals/aBle2UART.c ****   bleRST,
+  46:Application/aPedals/aBle2UART.c ****   bleWaitInit,
+  47:Application/aPedals/aBle2UART.c ****   bleInitWaitRx,
+  48:Application/aPedals/aBle2UART.c ****   bleWaitRx,
+  49:Application/aPedals/aBle2UART.c ****   bleTimeOut
+ARM GAS  /tmp/ccEMlEbr.s 			page 3
+
+
+  50:Application/aPedals/aBle2UART.c **** }bleStates;
+  51:Application/aPedals/aBle2UART.c **** bleStates aBleState;
+  52:Application/aPedals/aBle2UART.c **** 
+  53:Application/aPedals/aBle2UART.c **** static void aBle2UART_Setup( void );
+  54:Application/aPedals/aBle2UART.c **** 
+  55:Application/aPedals/aBle2UART.c **** void aBle2UART_init( void )
+  56:Application/aPedals/aBle2UART.c **** {
+  60              		.loc 1 56 0
+  61              		.cfi_startproc
+  62              		@ args = 0, pretend = 0, frame = 24
+  63              		@ frame_needed = 1, uses_anonymous_args = 0
+  64 0000 80B5     		push	{r7, lr}
+  65              	.LCFI0:
+  66              		.cfi_def_cfa_offset 8
+  67              		.cfi_offset 7, -8
+  68              		.cfi_offset 14, -4
+  69 0002 86B0     		sub	sp, sp, #24
+  70              	.LCFI1:
+  71              		.cfi_def_cfa_offset 32
+  72 0004 00AF     		add	r7, sp, #0
+  73              	.LCFI2:
+  74              		.cfi_def_cfa_register 7
+  75              	.LBB2:
+  57:Application/aPedals/aBle2UART.c ****   GPIO_InitTypeDef  GPIO_InitStruct;
+  58:Application/aPedals/aBle2UART.c **** 
+  59:Application/aPedals/aBle2UART.c ****   ABLEMODULE_RST_GPIO_CLK_ENABLE();
+  76              		.loc 1 59 0
+  77 0006 2C4B     		ldr	r3, .L3
+  78 0008 9B69     		ldr	r3, [r3, #24]
+  79 000a 2B4A     		ldr	r2, .L3
+  80 000c 43F00403 		orr	r3, r3, #4
+  81 0010 9361     		str	r3, [r2, #24]
+  82 0012 294B     		ldr	r3, .L3
+  83 0014 9B69     		ldr	r3, [r3, #24]
+  84 0016 03F00403 		and	r3, r3, #4
+  85 001a 7B60     		str	r3, [r7, #4]
+  86 001c 7B68     		ldr	r3, [r7, #4]
+  87              	.LBE2:
+  60:Application/aPedals/aBle2UART.c **** 
+  61:Application/aPedals/aBle2UART.c ****   /*reset the BLE module until the power is stable*/
+  62:Application/aPedals/aBle2UART.c ****   HAL_GPIO_WritePin(ABLEMODULE_RST_GPIO_PORT,ABLEMODULE_RST_PIN,GPIO_PIN_RESET);
+  88              		.loc 1 62 0
+  89 001e 0022     		movs	r2, #0
+  90 0020 4FF48071 		mov	r1, #256
+  91 0024 2548     		ldr	r0, .L3+4
+  92 0026 FFF7FEFF 		bl	HAL_GPIO_WritePin
+  63:Application/aPedals/aBle2UART.c **** 
+  64:Application/aPedals/aBle2UART.c ****   /*BLE module RST pin (0 == reset)*/
+  65:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Pin       = ABLEMODULE_RST_PIN;
+  93              		.loc 1 65 0
+  94 002a 4FF48073 		mov	r3, #256
+  95 002e BB60     		str	r3, [r7, #8]
+  66:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Mode      = GPIO_MODE_OUTPUT_OD;
+  96              		.loc 1 66 0
+  97 0030 1123     		movs	r3, #17
+  98 0032 FB60     		str	r3, [r7, #12]
+  67:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Pull      = GPIO_NOPULL; /*RST pin is pulled up by the BLE module*/
+ARM GAS  /tmp/ccEMlEbr.s 			page 4
+
+
+  99              		.loc 1 67 0
+ 100 0034 0023     		movs	r3, #0
+ 101 0036 3B61     		str	r3, [r7, #16]
+  68:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_LOW;
+ 102              		.loc 1 68 0
+ 103 0038 0223     		movs	r3, #2
+ 104 003a 7B61     		str	r3, [r7, #20]
+  69:Application/aPedals/aBle2UART.c **** 
+  70:Application/aPedals/aBle2UART.c ****   HAL_GPIO_Init(ABLEMODULE_RST_GPIO_PORT, &GPIO_InitStruct);
+ 105              		.loc 1 70 0
+ 106 003c 07F10803 		add	r3, r7, #8
+ 107 0040 1946     		mov	r1, r3
+ 108 0042 1E48     		ldr	r0, .L3+4
+ 109 0044 FFF7FEFF 		bl	HAL_GPIO_Init
+  71:Application/aPedals/aBle2UART.c **** 
+  72:Application/aPedals/aBle2UART.c **** 
+  73:Application/aPedals/aBle2UART.c ****   /*##-1- Configure the UART peripheral ######################################*/
+  74:Application/aPedals/aBle2UART.c ****   /* Put the USART peripheral in the Asynchronous mode (UART Mode) */
+  75:Application/aPedals/aBle2UART.c ****   /* UART configured as follows:
+  76:Application/aPedals/aBle2UART.c ****       - Word Length = 8 Bits (8 data bit + 0 parity bit) : 
+  77:Application/aPedals/aBle2UART.c ****                       BE CAREFUL : Program 8 data bits + 0 parity bit in PC HyperTerminal
+  78:Application/aPedals/aBle2UART.c ****       - Stop Bit    = One Stop bit
+  79:Application/aPedals/aBle2UART.c ****       - Parity      = NONE
+  80:Application/aPedals/aBle2UART.c ****       - BaudRate    = 9600 baud
+  81:Application/aPedals/aBle2UART.c ****       - Hardware flow control disabled (RTS and CTS signals) */
+  82:Application/aPedals/aBle2UART.c ****   UartHandle.Instance          = USARTx;
+ 110              		.loc 1 82 0
+ 111 0048 1D4B     		ldr	r3, .L3+8
+ 112 004a 1E4A     		ldr	r2, .L3+12
+ 113 004c 1A60     		str	r2, [r3]
+  83:Application/aPedals/aBle2UART.c **** 
+  84:Application/aPedals/aBle2UART.c ****   UartHandle.Init.BaudRate     = 115200;
+ 114              		.loc 1 84 0
+ 115 004e 1C4B     		ldr	r3, .L3+8
+ 116 0050 4FF4E132 		mov	r2, #115200
+ 117 0054 5A60     		str	r2, [r3, #4]
+  85:Application/aPedals/aBle2UART.c ****   UartHandle.Init.WordLength   = UART_WORDLENGTH_8B;
+ 118              		.loc 1 85 0
+ 119 0056 1A4B     		ldr	r3, .L3+8
+ 120 0058 0022     		movs	r2, #0
+ 121 005a 9A60     		str	r2, [r3, #8]
+  86:Application/aPedals/aBle2UART.c ****   UartHandle.Init.StopBits     = UART_STOPBITS_1;
+ 122              		.loc 1 86 0
+ 123 005c 184B     		ldr	r3, .L3+8
+ 124 005e 0022     		movs	r2, #0
+ 125 0060 DA60     		str	r2, [r3, #12]
+  87:Application/aPedals/aBle2UART.c ****   UartHandle.Init.Parity       = UART_PARITY_NONE;
+ 126              		.loc 1 87 0
+ 127 0062 174B     		ldr	r3, .L3+8
+ 128 0064 0022     		movs	r2, #0
+ 129 0066 1A61     		str	r2, [r3, #16]
+  88:Application/aPedals/aBle2UART.c ****   UartHandle.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
+ 130              		.loc 1 88 0
+ 131 0068 154B     		ldr	r3, .L3+8
+ 132 006a 0022     		movs	r2, #0
+ 133 006c 9A61     		str	r2, [r3, #24]
+  89:Application/aPedals/aBle2UART.c ****   UartHandle.Init.Mode         = UART_MODE_TX_RX;
+ARM GAS  /tmp/ccEMlEbr.s 			page 5
+
+
+ 134              		.loc 1 89 0
+ 135 006e 144B     		ldr	r3, .L3+8
+ 136 0070 0C22     		movs	r2, #12
+ 137 0072 5A61     		str	r2, [r3, #20]
+  90:Application/aPedals/aBle2UART.c **** 
+  91:Application/aPedals/aBle2UART.c ****   if (HAL_UART_Init(&UartHandle) != HAL_OK) /*calls the function HAL_UART_MspInit that is defined b
+ 138              		.loc 1 91 0
+ 139 0074 1248     		ldr	r0, .L3+8
+ 140 0076 FFF7FEFF 		bl	HAL_UART_Init
+ 141 007a 0346     		mov	r3, r0
+ 142 007c 002B     		cmp	r3, #0
+ 143 007e 03D0     		beq	.L2
+  92:Application/aPedals/aBle2UART.c ****   {
+  93:Application/aPedals/aBle2UART.c ****       /* Initialization Error */
+  94:Application/aPedals/aBle2UART.c ****       Error_Handler();
+ 144              		.loc 1 94 0
+ 145 0080 5E21     		movs	r1, #94
+ 146 0082 1148     		ldr	r0, .L3+16
+ 147 0084 FFF7FEFF 		bl	_Error_Handler
+ 148              	.L2:
+  95:Application/aPedals/aBle2UART.c ****   }
+  96:Application/aPedals/aBle2UART.c **** 
+  97:Application/aPedals/aBle2UART.c ****   sIdx = 0u;
+ 149              		.loc 1 97 0
+ 150 0088 104B     		ldr	r3, .L3+20
+ 151 008a 0022     		movs	r2, #0
+ 152 008c 1A70     		strb	r2, [r3]
+  98:Application/aPedals/aBle2UART.c ****   bleTim = 300u; /*300 ms wait before releasing the rst pin of BLE external module*/
+ 153              		.loc 1 98 0
+ 154 008e 104B     		ldr	r3, .L3+24
+ 155 0090 4FF49672 		mov	r2, #300
+ 156 0094 1A80     		strh	r2, [r3]	@ movhi
+  99:Application/aPedals/aBle2UART.c ****   aBleState = bleRST;
+ 157              		.loc 1 99 0
+ 158 0096 0F4B     		ldr	r3, .L3+28
+ 159 0098 0022     		movs	r2, #0
+ 160 009a 1A70     		strb	r2, [r3]
+ 100:Application/aPedals/aBle2UART.c ****   evBleRx = 0u;
+ 161              		.loc 1 100 0
+ 162 009c 0E4B     		ldr	r3, .L3+32
+ 163 009e 0022     		movs	r2, #0
+ 164 00a0 1A70     		strb	r2, [r3]
+ 101:Application/aPedals/aBle2UART.c ****   evTimeout = 0u;
+ 165              		.loc 1 101 0
+ 166 00a2 0E4B     		ldr	r3, .L3+36
+ 167 00a4 0022     		movs	r2, #0
+ 168 00a6 1A70     		strb	r2, [r3]
+ 102:Application/aPedals/aBle2UART.c ****   cmdLength = 0u;
+ 169              		.loc 1 102 0
+ 170 00a8 0D4B     		ldr	r3, .L3+40
+ 171 00aa 0022     		movs	r2, #0
+ 172 00ac 1A70     		strb	r2, [r3]
+ 103:Application/aPedals/aBle2UART.c **** 
+ 104:Application/aPedals/aBle2UART.c **** }
+ 173              		.loc 1 104 0
+ 174 00ae 00BF     		nop
+ 175 00b0 1837     		adds	r7, r7, #24
+ARM GAS  /tmp/ccEMlEbr.s 			page 6
+
+
+ 176              	.LCFI3:
+ 177              		.cfi_def_cfa_offset 8
+ 178 00b2 BD46     		mov	sp, r7
+ 179              	.LCFI4:
+ 180              		.cfi_def_cfa_register 13
+ 181              		@ sp needed
+ 182 00b4 80BD     		pop	{r7, pc}
+ 183              	.L4:
+ 184 00b6 00BF     		.align	2
+ 185              	.L3:
+ 186 00b8 00100240 		.word	1073876992
+ 187 00bc 00080140 		.word	1073809408
+ 188 00c0 00000000 		.word	UartHandle
+ 189 00c4 00380140 		.word	1073821696
+ 190 00c8 00000000 		.word	.LC0
+ 191 00cc 00000000 		.word	sIdx
+ 192 00d0 00000000 		.word	bleTim
+ 193 00d4 00000000 		.word	aBleState
+ 194 00d8 00000000 		.word	evBleRx
+ 195 00dc 00000000 		.word	evTimeout
+ 196 00e0 00000000 		.word	cmdLength
+ 197              		.cfi_endproc
+ 198              	.LFE66:
+ 200              		.section	.text.aBle2UART_Setup,"ax",%progbits
+ 201              		.align	1
+ 202              		.syntax unified
+ 203              		.thumb
+ 204              		.thumb_func
+ 205              		.fpu softvfp
+ 207              	aBle2UART_Setup:
+ 208              	.LFB67:
+ 105:Application/aPedals/aBle2UART.c **** 
+ 106:Application/aPedals/aBle2UART.c **** /*prepare the BLE module for data reception*/
+ 107:Application/aPedals/aBle2UART.c **** void aBle2UART_Setup( void )
+ 108:Application/aPedals/aBle2UART.c **** {
+ 209              		.loc 1 108 0
+ 210              		.cfi_startproc
+ 211              		@ args = 0, pretend = 0, frame = 8
+ 212              		@ frame_needed = 1, uses_anonymous_args = 0
+ 213 0000 80B5     		push	{r7, lr}
+ 214              	.LCFI5:
+ 215              		.cfi_def_cfa_offset 8
+ 216              		.cfi_offset 7, -8
+ 217              		.cfi_offset 14, -4
+ 218 0002 82B0     		sub	sp, sp, #8
+ 219              	.LCFI6:
+ 220              		.cfi_def_cfa_offset 16
+ 221 0004 00AF     		add	r7, sp, #0
+ 222              	.LCFI7:
+ 223              		.cfi_def_cfa_register 7
+ 109:Application/aPedals/aBle2UART.c ****   uint8_t i;
+ 110:Application/aPedals/aBle2UART.c ****   /*cmd is on 2 digits*/
+ 111:Application/aPedals/aBle2UART.c ****   cmdLength = ((bleSetupScript[sIdx]-'0') * 10u) + (bleSetupScript[sIdx+1]-'0');
+ 224              		.loc 1 111 0
+ 225 0006 274B     		ldr	r3, .L9
+ 226 0008 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 227 000a 1A46     		mov	r2, r3
+ARM GAS  /tmp/ccEMlEbr.s 			page 7
+
+
+ 228 000c 264B     		ldr	r3, .L9+4
+ 229 000e 9B5C     		ldrb	r3, [r3, r2]	@ zero_extendqisi2
+ 230 0010 1A46     		mov	r2, r3
+ 231 0012 9200     		lsls	r2, r2, #2
+ 232 0014 1344     		add	r3, r3, r2
+ 233 0016 5B00     		lsls	r3, r3, #1
+ 234 0018 DAB2     		uxtb	r2, r3
+ 235 001a 224B     		ldr	r3, .L9
+ 236 001c 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 237 001e 0133     		adds	r3, r3, #1
+ 238 0020 2149     		ldr	r1, .L9+4
+ 239 0022 CB5C     		ldrb	r3, [r1, r3]	@ zero_extendqisi2
+ 240 0024 1344     		add	r3, r3, r2
+ 241 0026 DBB2     		uxtb	r3, r3
+ 242 0028 103B     		subs	r3, r3, #16
+ 243 002a DAB2     		uxtb	r2, r3
+ 244 002c 1F4B     		ldr	r3, .L9+8
+ 245 002e 1A70     		strb	r2, [r3]
+ 112:Application/aPedals/aBle2UART.c **** 
+ 113:Application/aPedals/aBle2UART.c ****   sIdx+=2u;
+ 246              		.loc 1 113 0
+ 247 0030 1C4B     		ldr	r3, .L9
+ 248 0032 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 249 0034 0233     		adds	r3, r3, #2
+ 250 0036 DAB2     		uxtb	r2, r3
+ 251 0038 1A4B     		ldr	r3, .L9
+ 252 003a 1A70     		strb	r2, [r3]
+ 114:Application/aPedals/aBle2UART.c **** 
+ 115:Application/aPedals/aBle2UART.c ****   /*get the current command*/
+ 116:Application/aPedals/aBle2UART.c ****   for (i = 0u; i< cmdLength; i++)
+ 253              		.loc 1 116 0
+ 254 003c 0023     		movs	r3, #0
+ 255 003e FB71     		strb	r3, [r7, #7]
+ 256 0040 0CE0     		b	.L6
+ 257              	.L7:
+ 117:Application/aPedals/aBle2UART.c ****   {
+ 118:Application/aPedals/aBle2UART.c ****     aTxBuffer[i] = bleSetupScript[sIdx+i];
+ 258              		.loc 1 118 0 discriminator 3
+ 259 0042 184B     		ldr	r3, .L9
+ 260 0044 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 261 0046 1A46     		mov	r2, r3
+ 262 0048 FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 263 004a 1A44     		add	r2, r2, r3
+ 264 004c FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 265 004e 1649     		ldr	r1, .L9+4
+ 266 0050 895C     		ldrb	r1, [r1, r2]	@ zero_extendqisi2
+ 267 0052 174A     		ldr	r2, .L9+12
+ 268 0054 D154     		strb	r1, [r2, r3]
+ 116:Application/aPedals/aBle2UART.c ****   {
+ 269              		.loc 1 116 0 discriminator 3
+ 270 0056 FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 271 0058 0133     		adds	r3, r3, #1
+ 272 005a FB71     		strb	r3, [r7, #7]
+ 273              	.L6:
+ 116:Application/aPedals/aBle2UART.c ****   {
+ 274              		.loc 1 116 0 is_stmt 0 discriminator 1
+ 275 005c 134B     		ldr	r3, .L9+8
+ARM GAS  /tmp/ccEMlEbr.s 			page 8
+
+
+ 276 005e 1B78     		ldrb	r3, [r3]
+ 277 0060 DBB2     		uxtb	r3, r3
+ 278 0062 FA79     		ldrb	r2, [r7, #7]	@ zero_extendqisi2
+ 279 0064 9A42     		cmp	r2, r3
+ 280 0066 ECD3     		bcc	.L7
+ 119:Application/aPedals/aBle2UART.c ****   }
+ 120:Application/aPedals/aBle2UART.c **** 
+ 121:Application/aPedals/aBle2UART.c ****   /*execute the next command from the script buffer*/
+ 122:Application/aPedals/aBle2UART.c ****   if (HAL_UART_Transmit_DMA(&UartHandle, aTxBuffer, cmdLength) != HAL_OK)
+ 281              		.loc 1 122 0 is_stmt 1
+ 282 0068 104B     		ldr	r3, .L9+8
+ 283 006a 1B78     		ldrb	r3, [r3]
+ 284 006c DBB2     		uxtb	r3, r3
+ 285 006e 9BB2     		uxth	r3, r3
+ 286 0070 1A46     		mov	r2, r3
+ 287 0072 0F49     		ldr	r1, .L9+12
+ 288 0074 0F48     		ldr	r0, .L9+16
+ 289 0076 FFF7FEFF 		bl	HAL_UART_Transmit_DMA
+ 290 007a 0346     		mov	r3, r0
+ 291 007c 002B     		cmp	r3, #0
+ 292 007e 03D0     		beq	.L8
+ 123:Application/aPedals/aBle2UART.c ****   {
+ 124:Application/aPedals/aBle2UART.c ****       /* Transfer error in transmission process */
+ 125:Application/aPedals/aBle2UART.c ****       Error_Handler();
+ 293              		.loc 1 125 0
+ 294 0080 7D21     		movs	r1, #125
+ 295 0082 0D48     		ldr	r0, .L9+20
+ 296 0084 FFF7FEFF 		bl	_Error_Handler
+ 297              	.L8:
+ 126:Application/aPedals/aBle2UART.c ****   }
+ 127:Application/aPedals/aBle2UART.c ****   sIdx+=cmdLength;
+ 298              		.loc 1 127 0
+ 299 0088 084B     		ldr	r3, .L9+8
+ 300 008a 1B78     		ldrb	r3, [r3]
+ 301 008c DAB2     		uxtb	r2, r3
+ 302 008e 054B     		ldr	r3, .L9
+ 303 0090 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 304 0092 1344     		add	r3, r3, r2
+ 305 0094 DAB2     		uxtb	r2, r3
+ 306 0096 034B     		ldr	r3, .L9
+ 307 0098 1A70     		strb	r2, [r3]
+ 128:Application/aPedals/aBle2UART.c **** 
+ 129:Application/aPedals/aBle2UART.c **** }
+ 308              		.loc 1 129 0
+ 309 009a 00BF     		nop
+ 310 009c 0837     		adds	r7, r7, #8
+ 311              	.LCFI8:
+ 312              		.cfi_def_cfa_offset 8
+ 313 009e BD46     		mov	sp, r7
+ 314              	.LCFI9:
+ 315              		.cfi_def_cfa_register 13
+ 316              		@ sp needed
+ 317 00a0 80BD     		pop	{r7, pc}
+ 318              	.L10:
+ 319 00a2 00BF     		.align	2
+ 320              	.L9:
+ 321 00a4 00000000 		.word	sIdx
+ARM GAS  /tmp/ccEMlEbr.s 			page 9
+
+
+ 322 00a8 00000000 		.word	bleSetupScript
+ 323 00ac 00000000 		.word	cmdLength
+ 324 00b0 00000000 		.word	aTxBuffer
+ 325 00b4 00000000 		.word	UartHandle
+ 326 00b8 00000000 		.word	.LC0
+ 327              		.cfi_endproc
+ 328              	.LFE67:
+ 330              		.section	.text.aBleAsyncTask,"ax",%progbits
+ 331              		.align	1
+ 332              		.global	aBleAsyncTask
+ 333              		.syntax unified
+ 334              		.thumb
+ 335              		.thumb_func
+ 336              		.fpu softvfp
+ 338              	aBleAsyncTask:
+ 339              	.LFB68:
+ 130:Application/aPedals/aBle2UART.c **** 
+ 131:Application/aPedals/aBle2UART.c **** 
+ 132:Application/aPedals/aBle2UART.c **** void aBleAsyncTask( void )
+ 133:Application/aPedals/aBle2UART.c **** {
+ 340              		.loc 1 133 0
+ 341              		.cfi_startproc
+ 342              		@ args = 0, pretend = 0, frame = 8
+ 343              		@ frame_needed = 1, uses_anonymous_args = 0
+ 344 0000 80B5     		push	{r7, lr}
+ 345              	.LCFI10:
+ 346              		.cfi_def_cfa_offset 8
+ 347              		.cfi_offset 7, -8
+ 348              		.cfi_offset 14, -4
+ 349 0002 82B0     		sub	sp, sp, #8
+ 350              	.LCFI11:
+ 351              		.cfi_def_cfa_offset 16
+ 352 0004 00AF     		add	r7, sp, #0
+ 353              	.LCFI12:
+ 354              		.cfi_def_cfa_register 7
+ 134:Application/aPedals/aBle2UART.c **** 
+ 135:Application/aPedals/aBle2UART.c ****   switch (aBleState)
+ 355              		.loc 1 135 0
+ 356 0006 614B     		ldr	r3, .L33
+ 357 0008 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 358 000a 042B     		cmp	r3, #4
+ 359 000c 00F2AC80 		bhi	.L12
+ 360 0010 01A2     		adr	r2, .L14
+ 361 0012 52F823F0 		ldr	pc, [r2, r3, lsl #2]
+ 362 0016 00BF     		.p2align 2
+ 363              	.L14:
+ 364 0018 2D000000 		.word	.L13+1
+ 365 001c 57000000 		.word	.L15+1
+ 366 0020 7F000000 		.word	.L16+1
+ 367 0024 1D010000 		.word	.L17+1
+ 368 0028 71010000 		.word	.L28+1
+ 369              		.p2align 1
+ 370              	.L13:
+ 136:Application/aPedals/aBle2UART.c ****   {
+ 137:Application/aPedals/aBle2UART.c ****     case bleRST:
+ 138:Application/aPedals/aBle2UART.c ****       if (evTimeout)
+ 371              		.loc 1 138 0
+ARM GAS  /tmp/ccEMlEbr.s 			page 10
+
+
+ 372 002c 584B     		ldr	r3, .L33+4
+ 373 002e 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 374 0030 002B     		cmp	r3, #0
+ 375 0032 00F09F80 		beq	.L29
+ 139:Application/aPedals/aBle2UART.c ****       {
+ 140:Application/aPedals/aBle2UART.c ****         evTimeout = 0u;
+ 376              		.loc 1 140 0
+ 377 0036 564B     		ldr	r3, .L33+4
+ 378 0038 0022     		movs	r2, #0
+ 379 003a 1A70     		strb	r2, [r3]
+ 141:Application/aPedals/aBle2UART.c ****         /*release the reset of the BLE module*/
+ 142:Application/aPedals/aBle2UART.c ****         HAL_GPIO_WritePin(ABLEMODULE_RST_GPIO_PORT,ABLEMODULE_RST_PIN,GPIO_PIN_SET);
+ 380              		.loc 1 142 0
+ 381 003c 0122     		movs	r2, #1
+ 382 003e 4FF48071 		mov	r1, #256
+ 383 0042 5448     		ldr	r0, .L33+8
+ 384 0044 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 143:Application/aPedals/aBle2UART.c ****         bleTim = 200u; //init timeout
+ 385              		.loc 1 143 0
+ 386 0048 534B     		ldr	r3, .L33+12
+ 387 004a C822     		movs	r2, #200
+ 388 004c 1A80     		strh	r2, [r3]	@ movhi
+ 144:Application/aPedals/aBle2UART.c ****         aBleState = bleWaitInit;
+ 389              		.loc 1 144 0
+ 390 004e 4F4B     		ldr	r3, .L33
+ 391 0050 0122     		movs	r2, #1
+ 392 0052 1A70     		strb	r2, [r3]
+ 145:Application/aPedals/aBle2UART.c ****       }
+ 146:Application/aPedals/aBle2UART.c ****     break;
+ 393              		.loc 1 146 0
+ 394 0054 8EE0     		b	.L29
+ 395              	.L15:
+ 147:Application/aPedals/aBle2UART.c ****     case bleWaitInit:
+ 148:Application/aPedals/aBle2UART.c ****       if (evTimeout)
+ 396              		.loc 1 148 0
+ 397 0056 4E4B     		ldr	r3, .L33+4
+ 398 0058 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 399 005a 002B     		cmp	r3, #0
+ 400 005c 00F08C80 		beq	.L30
+ 149:Application/aPedals/aBle2UART.c ****       {//timeout occured after reset was released
+ 150:Application/aPedals/aBle2UART.c ****         evTimeout = 0u;
+ 401              		.loc 1 150 0
+ 402 0060 4B4B     		ldr	r3, .L33+4
+ 403 0062 0022     		movs	r2, #0
+ 404 0064 1A70     		strb	r2, [r3]
+ 151:Application/aPedals/aBle2UART.c ****         //aBleState = bleTimeOut;
+ 152:Application/aPedals/aBle2UART.c ****         bleTim = 200u; //reload timer
+ 405              		.loc 1 152 0
+ 406 0066 4C4B     		ldr	r3, .L33+12
+ 407 0068 C822     		movs	r2, #200
+ 408 006a 1A80     		strh	r2, [r3]	@ movhi
+ 153:Application/aPedals/aBle2UART.c ****         /*send first command*/
+ 154:Application/aPedals/aBle2UART.c ****         sIdx = 0u;
+ 409              		.loc 1 154 0
+ 410 006c 4B4B     		ldr	r3, .L33+16
+ 411 006e 0022     		movs	r2, #0
+ 412 0070 1A70     		strb	r2, [r3]
+ARM GAS  /tmp/ccEMlEbr.s 			page 11
+
+
+ 155:Application/aPedals/aBle2UART.c ****         aBle2UART_Setup();
+ 413              		.loc 1 155 0
+ 414 0072 FFF7FEFF 		bl	aBle2UART_Setup
+ 156:Application/aPedals/aBle2UART.c ****         aBleState = bleInitWaitRx;
+ 415              		.loc 1 156 0
+ 416 0076 454B     		ldr	r3, .L33
+ 417 0078 0222     		movs	r2, #2
+ 418 007a 1A70     		strb	r2, [r3]
+ 157:Application/aPedals/aBle2UART.c ****       }
+ 158:Application/aPedals/aBle2UART.c ****     break;
+ 419              		.loc 1 158 0
+ 420 007c 7CE0     		b	.L30
+ 421              	.L16:
+ 159:Application/aPedals/aBle2UART.c ****     case bleInitWaitRx:
+ 160:Application/aPedals/aBle2UART.c ****       /*check rx event*/
+ 161:Application/aPedals/aBle2UART.c ****       if ( 0u != evBleRx )
+ 422              		.loc 1 161 0
+ 423 007e 484B     		ldr	r3, .L33+20
+ 424 0080 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 425 0082 002B     		cmp	r3, #0
+ 426 0084 22D0     		beq	.L22
+ 162:Application/aPedals/aBle2UART.c ****       {/*response received - but because I did not call the DMA receive this event will not happen*
+ 163:Application/aPedals/aBle2UART.c ****         evBleRx = 0u;
+ 427              		.loc 1 163 0
+ 428 0086 464B     		ldr	r3, .L33+20
+ 429 0088 0022     		movs	r2, #0
+ 430 008a 1A70     		strb	r2, [r3]
+ 164:Application/aPedals/aBle2UART.c ****         bleTim = 0u; //stop timer
+ 431              		.loc 1 164 0
+ 432 008c 424B     		ldr	r3, .L33+12
+ 433 008e 0022     		movs	r2, #0
+ 434 0090 1A80     		strh	r2, [r3]	@ movhi
+ 165:Application/aPedals/aBle2UART.c ****         if (bleSetupScript[sIdx] != '\0')
+ 435              		.loc 1 165 0
+ 436 0092 424B     		ldr	r3, .L33+16
+ 437 0094 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 438 0096 1A46     		mov	r2, r3
+ 439 0098 424B     		ldr	r3, .L33+24
+ 440 009a 9B5C     		ldrb	r3, [r3, r2]	@ zero_extendqisi2
+ 441 009c 002B     		cmp	r3, #0
+ 442 009e 06D0     		beq	.L23
+ 166:Application/aPedals/aBle2UART.c ****         { 
+ 167:Application/aPedals/aBle2UART.c ****           bleTim = 800u; //reload timer
+ 443              		.loc 1 167 0
+ 444 00a0 3D4B     		ldr	r3, .L33+12
+ 445 00a2 4FF44872 		mov	r2, #800
+ 446 00a6 1A80     		strh	r2, [r3]	@ movhi
+ 168:Application/aPedals/aBle2UART.c ****           /*continue setup script*/
+ 169:Application/aPedals/aBle2UART.c ****           aBle2UART_Setup();
+ 447              		.loc 1 169 0
+ 448 00a8 FFF7FEFF 		bl	aBle2UART_Setup
+ 449 00ac 0EE0     		b	.L22
+ 450              	.L23:
+ 170:Application/aPedals/aBle2UART.c ****         }
+ 171:Application/aPedals/aBle2UART.c ****         else
+ 172:Application/aPedals/aBle2UART.c ****         {/*setup script completed*/
+ 173:Application/aPedals/aBle2UART.c ****           aBleState = bleWaitRx;
+ARM GAS  /tmp/ccEMlEbr.s 			page 12
+
+
+ 451              		.loc 1 173 0
+ 452 00ae 374B     		ldr	r3, .L33
+ 453 00b0 0322     		movs	r2, #3
+ 454 00b2 1A70     		strb	r2, [r3]
+ 174:Application/aPedals/aBle2UART.c ****           /*##-3- Put UART peripheral in reception process ###########################*/
+ 175:Application/aPedals/aBle2UART.c ****           if (HAL_UART_Receive_DMA(&UartHandle, aRxBuffer, 14u/*todo-put 16u when 2 pedals are atta
+ 455              		.loc 1 175 0
+ 456 00b4 0E22     		movs	r2, #14
+ 457 00b6 3C49     		ldr	r1, .L33+28
+ 458 00b8 3C48     		ldr	r0, .L33+32
+ 459 00ba FFF7FEFF 		bl	HAL_UART_Receive_DMA
+ 460 00be 0346     		mov	r3, r0
+ 461 00c0 002B     		cmp	r3, #0
+ 462 00c2 03D0     		beq	.L22
+ 176:Application/aPedals/aBle2UART.c ****           {
+ 177:Application/aPedals/aBle2UART.c ****             /* Transfer error in reception process */
+ 178:Application/aPedals/aBle2UART.c ****             Error_Handler();
+ 463              		.loc 1 178 0
+ 464 00c4 B221     		movs	r1, #178
+ 465 00c6 3A48     		ldr	r0, .L33+36
+ 466 00c8 FFF7FEFF 		bl	_Error_Handler
+ 467              	.L22:
+ 179:Application/aPedals/aBle2UART.c ****           }
+ 180:Application/aPedals/aBle2UART.c ****         }
+ 181:Application/aPedals/aBle2UART.c ****       }
+ 182:Application/aPedals/aBle2UART.c ****       if (evTimeout)
+ 468              		.loc 1 182 0
+ 469 00cc 304B     		ldr	r3, .L33+4
+ 470 00ce 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 471 00d0 002B     		cmp	r3, #0
+ 472 00d2 53D0     		beq	.L31
+ 183:Application/aPedals/aBle2UART.c ****       {
+ 184:Application/aPedals/aBle2UART.c ****         evTimeout = 0u;
+ 473              		.loc 1 184 0
+ 474 00d4 2E4B     		ldr	r3, .L33+4
+ 475 00d6 0022     		movs	r2, #0
+ 476 00d8 1A70     		strb	r2, [r3]
+ 185:Application/aPedals/aBle2UART.c **** 
+ 186:Application/aPedals/aBle2UART.c ****         bleTim = 0u; //stop timer
+ 477              		.loc 1 186 0
+ 478 00da 2F4B     		ldr	r3, .L33+12
+ 479 00dc 0022     		movs	r2, #0
+ 480 00de 1A80     		strh	r2, [r3]	@ movhi
+ 187:Application/aPedals/aBle2UART.c ****         if (bleSetupScript[sIdx] != '\0')
+ 481              		.loc 1 187 0
+ 482 00e0 2E4B     		ldr	r3, .L33+16
+ 483 00e2 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 484 00e4 1A46     		mov	r2, r3
+ 485 00e6 2F4B     		ldr	r3, .L33+24
+ 486 00e8 9B5C     		ldrb	r3, [r3, r2]	@ zero_extendqisi2
+ 487 00ea 002B     		cmp	r3, #0
+ 488 00ec 06D0     		beq	.L25
+ 188:Application/aPedals/aBle2UART.c ****         { 
+ 189:Application/aPedals/aBle2UART.c ****           bleTim = 800u; //reload timer
+ 489              		.loc 1 189 0
+ 490 00ee 2A4B     		ldr	r3, .L33+12
+ 491 00f0 4FF44872 		mov	r2, #800
+ARM GAS  /tmp/ccEMlEbr.s 			page 13
+
+
+ 492 00f4 1A80     		strh	r2, [r3]	@ movhi
+ 190:Application/aPedals/aBle2UART.c ****           /*continue setup script*/
+ 191:Application/aPedals/aBle2UART.c ****           aBle2UART_Setup();
+ 493              		.loc 1 191 0
+ 494 00f6 FFF7FEFF 		bl	aBle2UART_Setup
+ 192:Application/aPedals/aBle2UART.c ****         }
+ 193:Application/aPedals/aBle2UART.c ****         else
+ 194:Application/aPedals/aBle2UART.c ****         {/*setup script completed*/
+ 195:Application/aPedals/aBle2UART.c ****           aBleState = bleWaitRx;
+ 196:Application/aPedals/aBle2UART.c ****           /*##-3- Put UART peripheral in reception process ###########################*/
+ 197:Application/aPedals/aBle2UART.c ****           if (HAL_UART_Receive_DMA(&UartHandle, aRxBuffer, 16u/*todo-put 16u when 2 pedals are atta
+ 198:Application/aPedals/aBle2UART.c ****           {
+ 199:Application/aPedals/aBle2UART.c ****             /* Transfer error in reception process */
+ 200:Application/aPedals/aBle2UART.c ****             Error_Handler();
+ 201:Application/aPedals/aBle2UART.c ****           }
+ 202:Application/aPedals/aBle2UART.c ****         }
+ 203:Application/aPedals/aBle2UART.c **** 
+ 204:Application/aPedals/aBle2UART.c ****       }
+ 205:Application/aPedals/aBle2UART.c ****     break;
+ 495              		.loc 1 205 0
+ 496 00fa 3FE0     		b	.L31
+ 497              	.L25:
+ 195:Application/aPedals/aBle2UART.c ****           /*##-3- Put UART peripheral in reception process ###########################*/
+ 498              		.loc 1 195 0
+ 499 00fc 234B     		ldr	r3, .L33
+ 500 00fe 0322     		movs	r2, #3
+ 501 0100 1A70     		strb	r2, [r3]
+ 197:Application/aPedals/aBle2UART.c ****           {
+ 502              		.loc 1 197 0
+ 503 0102 1022     		movs	r2, #16
+ 504 0104 2849     		ldr	r1, .L33+28
+ 505 0106 2948     		ldr	r0, .L33+32
+ 506 0108 FFF7FEFF 		bl	HAL_UART_Receive_DMA
+ 507 010c 0346     		mov	r3, r0
+ 508 010e 002B     		cmp	r3, #0
+ 509 0110 34D0     		beq	.L31
+ 200:Application/aPedals/aBle2UART.c ****           }
+ 510              		.loc 1 200 0
+ 511 0112 C821     		movs	r1, #200
+ 512 0114 2648     		ldr	r0, .L33+36
+ 513 0116 FFF7FEFF 		bl	_Error_Handler
+ 514              		.loc 1 205 0
+ 515 011a 2FE0     		b	.L31
+ 516              	.L17:
+ 206:Application/aPedals/aBle2UART.c ****     case bleWaitRx:
+ 207:Application/aPedals/aBle2UART.c ****       if ( 0u != evBleRx )
+ 517              		.loc 1 207 0
+ 518 011c 204B     		ldr	r3, .L33+20
+ 519 011e 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 520 0120 002B     		cmp	r3, #0
+ 521 0122 2DD0     		beq	.L32
+ 522              	.LBB3:
+ 208:Application/aPedals/aBle2UART.c ****       {
+ 209:Application/aPedals/aBle2UART.c ****         uint8_t rxSize = 16u;
+ 523              		.loc 1 209 0
+ 524 0124 1023     		movs	r3, #16
+ 525 0126 FB71     		strb	r3, [r7, #7]
+ARM GAS  /tmp/ccEMlEbr.s 			page 14
+
+
+ 210:Application/aPedals/aBle2UART.c ****         evBleRx = 0u;
+ 526              		.loc 1 210 0
+ 527 0128 1D4B     		ldr	r3, .L33+20
+ 528 012a 0022     		movs	r2, #0
+ 529 012c 1A70     		strb	r2, [r3]
+ 211:Application/aPedals/aBle2UART.c ****         apedals_StoreNewValues(&aRxBuffer[11]);
+ 530              		.loc 1 211 0
+ 531 012e 2148     		ldr	r0, .L33+40
+ 532 0130 FFF7FEFF 		bl	apedals_StoreNewValues
+ 212:Application/aPedals/aBle2UART.c ****         if ((aRxBuffer[0] != '%') && (aRxBuffer[1] != 'N') )
+ 533              		.loc 1 212 0
+ 534 0134 1C4B     		ldr	r3, .L33+28
+ 535 0136 1B78     		ldrb	r3, [r3]	@ zero_extendqisi2
+ 536 0138 252B     		cmp	r3, #37
+ 537 013a 06D0     		beq	.L27
+ 538              		.loc 1 212 0 is_stmt 0 discriminator 1
+ 539 013c 1A4B     		ldr	r3, .L33+28
+ 540 013e 5B78     		ldrb	r3, [r3, #1]	@ zero_extendqisi2
+ 541 0140 4E2B     		cmp	r3, #78
+ 542 0142 02D0     		beq	.L27
+ 213:Application/aPedals/aBle2UART.c ****         {/*buffer is not aligned ( one part is from current telegram and the other from the last on
+ 214:Application/aPedals/aBle2UART.c ****           /*read one extra byte untill the buffer is aligned*/
+ 215:Application/aPedals/aBle2UART.c ****           rxSize += 1u;
+ 543              		.loc 1 215 0 is_stmt 1
+ 544 0144 FB79     		ldrb	r3, [r7, #7]
+ 545 0146 0133     		adds	r3, r3, #1
+ 546 0148 FB71     		strb	r3, [r7, #7]
+ 547              	.L27:
+ 216:Application/aPedals/aBle2UART.c ****         }
+ 217:Application/aPedals/aBle2UART.c ****         /*##-3- Put UART peripheral in reception process ###########################*/
+ 218:Application/aPedals/aBle2UART.c ****         if (HAL_UART_Receive_DMA(&UartHandle, &aRxBuffer[0], rxSize) != HAL_OK) /*%NOTI,0027,BY%*/
+ 548              		.loc 1 218 0
+ 549 014a FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 550 014c 9BB2     		uxth	r3, r3
+ 551 014e 1A46     		mov	r2, r3
+ 552 0150 1549     		ldr	r1, .L33+28
+ 553 0152 1648     		ldr	r0, .L33+32
+ 554 0154 FFF7FEFF 		bl	HAL_UART_Receive_DMA
+ 555 0158 0346     		mov	r3, r0
+ 556 015a 002B     		cmp	r3, #0
+ 557 015c 10D0     		beq	.L32
+ 219:Application/aPedals/aBle2UART.c ****         {
+ 220:Application/aPedals/aBle2UART.c ****           /* Transfer error in reception process */
+ 221:Application/aPedals/aBle2UART.c ****           Error_Handler();
+ 558              		.loc 1 221 0
+ 559 015e DD21     		movs	r1, #221
+ 560 0160 1348     		ldr	r0, .L33+36
+ 561 0162 FFF7FEFF 		bl	_Error_Handler
+ 562              	.LBE3:
+ 222:Application/aPedals/aBle2UART.c ****         }
+ 223:Application/aPedals/aBle2UART.c ****       }
+ 224:Application/aPedals/aBle2UART.c ****     break;
+ 563              		.loc 1 224 0
+ 564 0166 0BE0     		b	.L32
+ 565              	.L12:
+ 225:Application/aPedals/aBle2UART.c ****     case bleTimeOut:
+ 226:Application/aPedals/aBle2UART.c ****       //todo: if button is pressed then
+ARM GAS  /tmp/ccEMlEbr.s 			page 15
+
+
+ 227:Application/aPedals/aBle2UART.c ****       //sIdx = 0u;
+ 228:Application/aPedals/aBle2UART.c ****       //aBleState = bleRST;
+ 229:Application/aPedals/aBle2UART.c ****     break;
+ 230:Application/aPedals/aBle2UART.c ****     default:
+ 231:Application/aPedals/aBle2UART.c ****       aBleState = bleRST;
+ 566              		.loc 1 231 0
+ 567 0168 084B     		ldr	r3, .L33
+ 568 016a 0022     		movs	r2, #0
+ 569 016c 1A70     		strb	r2, [r3]
+ 232:Application/aPedals/aBle2UART.c ****     break;
+ 570              		.loc 1 232 0
+ 571 016e 08E0     		b	.L20
+ 572              	.L28:
+ 229:Application/aPedals/aBle2UART.c ****     default:
+ 573              		.loc 1 229 0
+ 574 0170 00BF     		nop
+ 575 0172 06E0     		b	.L20
+ 576              	.L29:
+ 146:Application/aPedals/aBle2UART.c ****     case bleWaitInit:
+ 577              		.loc 1 146 0
+ 578 0174 00BF     		nop
+ 579 0176 04E0     		b	.L20
+ 580              	.L30:
+ 158:Application/aPedals/aBle2UART.c ****     case bleInitWaitRx:
+ 581              		.loc 1 158 0
+ 582 0178 00BF     		nop
+ 583 017a 02E0     		b	.L20
+ 584              	.L31:
+ 205:Application/aPedals/aBle2UART.c ****     case bleWaitRx:
+ 585              		.loc 1 205 0
+ 586 017c 00BF     		nop
+ 587 017e 00E0     		b	.L20
+ 588              	.L32:
+ 224:Application/aPedals/aBle2UART.c ****     case bleTimeOut:
+ 589              		.loc 1 224 0
+ 590 0180 00BF     		nop
+ 591              	.L20:
+ 233:Application/aPedals/aBle2UART.c ****   }
+ 234:Application/aPedals/aBle2UART.c **** }
+ 592              		.loc 1 234 0
+ 593 0182 00BF     		nop
+ 594 0184 0837     		adds	r7, r7, #8
+ 595              	.LCFI13:
+ 596              		.cfi_def_cfa_offset 8
+ 597 0186 BD46     		mov	sp, r7
+ 598              	.LCFI14:
+ 599              		.cfi_def_cfa_register 13
+ 600              		@ sp needed
+ 601 0188 80BD     		pop	{r7, pc}
+ 602              	.L34:
+ 603 018a 00BF     		.align	2
+ 604              	.L33:
+ 605 018c 00000000 		.word	aBleState
+ 606 0190 00000000 		.word	evTimeout
+ 607 0194 00080140 		.word	1073809408
+ 608 0198 00000000 		.word	bleTim
+ 609 019c 00000000 		.word	sIdx
+ARM GAS  /tmp/ccEMlEbr.s 			page 16
+
+
+ 610 01a0 00000000 		.word	evBleRx
+ 611 01a4 00000000 		.word	bleSetupScript
+ 612 01a8 00000000 		.word	aRxBuffer
+ 613 01ac 00000000 		.word	UartHandle
+ 614 01b0 00000000 		.word	.LC0
+ 615 01b4 0B000000 		.word	aRxBuffer+11
+ 616              		.cfi_endproc
+ 617              	.LFE68:
+ 619              		.section	.text.aBlePerTask,"ax",%progbits
+ 620              		.align	1
+ 621              		.global	aBlePerTask
+ 622              		.syntax unified
+ 623              		.thumb
+ 624              		.thumb_func
+ 625              		.fpu softvfp
+ 627              	aBlePerTask:
+ 628              	.LFB69:
+ 235:Application/aPedals/aBle2UART.c **** 
+ 236:Application/aPedals/aBle2UART.c **** void aBlePerTask( uint8_t per)
+ 237:Application/aPedals/aBle2UART.c **** {
+ 629              		.loc 1 237 0
+ 630              		.cfi_startproc
+ 631              		@ args = 0, pretend = 0, frame = 8
+ 632              		@ frame_needed = 1, uses_anonymous_args = 0
+ 633              		@ link register save eliminated.
+ 634 0000 80B4     		push	{r7}
+ 635              	.LCFI15:
+ 636              		.cfi_def_cfa_offset 4
+ 637              		.cfi_offset 7, -4
+ 638 0002 83B0     		sub	sp, sp, #12
+ 639              	.LCFI16:
+ 640              		.cfi_def_cfa_offset 16
+ 641 0004 00AF     		add	r7, sp, #0
+ 642              	.LCFI17:
+ 643              		.cfi_def_cfa_register 7
+ 644 0006 0346     		mov	r3, r0
+ 645 0008 FB71     		strb	r3, [r7, #7]
+ 238:Application/aPedals/aBle2UART.c ****   if ( bleTim >= per )
+ 646              		.loc 1 238 0
+ 647 000a FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 648 000c 9AB2     		uxth	r2, r3
+ 649 000e 0D4B     		ldr	r3, .L38
+ 650 0010 1B88     		ldrh	r3, [r3]
+ 651 0012 9A42     		cmp	r2, r3
+ 652 0014 10D8     		bhi	.L37
+ 239:Application/aPedals/aBle2UART.c **** 	{
+ 240:Application/aPedals/aBle2UART.c **** 		bleTim-=per;
+ 653              		.loc 1 240 0
+ 654 0016 0B4B     		ldr	r3, .L38
+ 655 0018 1A88     		ldrh	r2, [r3]
+ 656 001a FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 657 001c 9BB2     		uxth	r3, r3
+ 658 001e D31A     		subs	r3, r2, r3
+ 659 0020 9AB2     		uxth	r2, r3
+ 660 0022 084B     		ldr	r3, .L38
+ 661 0024 1A80     		strh	r2, [r3]	@ movhi
+ 241:Application/aPedals/aBle2UART.c **** 		if ( bleTim < per )
+ARM GAS  /tmp/ccEMlEbr.s 			page 17
+
+
+ 662              		.loc 1 241 0
+ 663 0026 FB79     		ldrb	r3, [r7, #7]	@ zero_extendqisi2
+ 664 0028 9AB2     		uxth	r2, r3
+ 665 002a 064B     		ldr	r3, .L38
+ 666 002c 1B88     		ldrh	r3, [r3]
+ 667 002e 9A42     		cmp	r2, r3
+ 668 0030 02D9     		bls	.L37
+ 242:Application/aPedals/aBle2UART.c **** 		{
+ 243:Application/aPedals/aBle2UART.c **** 	    evTimeout = 1u;
+ 669              		.loc 1 243 0
+ 670 0032 054B     		ldr	r3, .L38+4
+ 671 0034 0122     		movs	r2, #1
+ 672 0036 1A70     		strb	r2, [r3]
+ 673              	.L37:
+ 244:Application/aPedals/aBle2UART.c **** 		}
+ 245:Application/aPedals/aBle2UART.c **** 	}
+ 246:Application/aPedals/aBle2UART.c **** }
+ 674              		.loc 1 246 0
+ 675 0038 00BF     		nop
+ 676 003a 0C37     		adds	r7, r7, #12
+ 677              	.LCFI18:
+ 678              		.cfi_def_cfa_offset 4
+ 679 003c BD46     		mov	sp, r7
+ 680              	.LCFI19:
+ 681              		.cfi_def_cfa_register 13
+ 682              		@ sp needed
+ 683 003e 80BC     		pop	{r7}
+ 684              	.LCFI20:
+ 685              		.cfi_restore 7
+ 686              		.cfi_def_cfa_offset 0
+ 687 0040 7047     		bx	lr
+ 688              	.L39:
+ 689 0042 00BF     		.align	2
+ 690              	.L38:
+ 691 0044 00000000 		.word	bleTim
+ 692 0048 00000000 		.word	evTimeout
+ 693              		.cfi_endproc
+ 694              	.LFE69:
+ 696              		.section	.text.HAL_UART_TxCpltCallback,"ax",%progbits
+ 697              		.align	1
+ 698              		.global	HAL_UART_TxCpltCallback
+ 699              		.syntax unified
+ 700              		.thumb
+ 701              		.thumb_func
+ 702              		.fpu softvfp
+ 704              	HAL_UART_TxCpltCallback:
+ 705              	.LFB70:
+ 247:Application/aPedals/aBle2UART.c **** 
+ 248:Application/aPedals/aBle2UART.c **** 
+ 249:Application/aPedals/aBle2UART.c **** /**
+ 250:Application/aPedals/aBle2UART.c ****   * @brief  Tx Transfer completed callback
+ 251:Application/aPedals/aBle2UART.c ****   * @param  huart: UART handle.
+ 252:Application/aPedals/aBle2UART.c ****   * @note   This example shows a simple way to report end of DMA Tx transfer, and
+ 253:Application/aPedals/aBle2UART.c ****   *         you can add your own implementation.
+ 254:Application/aPedals/aBle2UART.c ****   * @retval None
+ 255:Application/aPedals/aBle2UART.c ****   */
+ 256:Application/aPedals/aBle2UART.c **** void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+ARM GAS  /tmp/ccEMlEbr.s 			page 18
+
+
+ 257:Application/aPedals/aBle2UART.c **** {
+ 706              		.loc 1 257 0
+ 707              		.cfi_startproc
+ 708              		@ args = 0, pretend = 0, frame = 8
+ 709              		@ frame_needed = 1, uses_anonymous_args = 0
+ 710              		@ link register save eliminated.
+ 711 0000 80B4     		push	{r7}
+ 712              	.LCFI21:
+ 713              		.cfi_def_cfa_offset 4
+ 714              		.cfi_offset 7, -4
+ 715 0002 83B0     		sub	sp, sp, #12
+ 716              	.LCFI22:
+ 717              		.cfi_def_cfa_offset 16
+ 718 0004 00AF     		add	r7, sp, #0
+ 719              	.LCFI23:
+ 720              		.cfi_def_cfa_register 7
+ 721 0006 7860     		str	r0, [r7, #4]
+ 258:Application/aPedals/aBle2UART.c **** 
+ 259:Application/aPedals/aBle2UART.c **** }
+ 722              		.loc 1 259 0
+ 723 0008 00BF     		nop
+ 724 000a 0C37     		adds	r7, r7, #12
+ 725              	.LCFI24:
+ 726              		.cfi_def_cfa_offset 4
+ 727 000c BD46     		mov	sp, r7
+ 728              	.LCFI25:
+ 729              		.cfi_def_cfa_register 13
+ 730              		@ sp needed
+ 731 000e 80BC     		pop	{r7}
+ 732              	.LCFI26:
+ 733              		.cfi_restore 7
+ 734              		.cfi_def_cfa_offset 0
+ 735 0010 7047     		bx	lr
+ 736              		.cfi_endproc
+ 737              	.LFE70:
+ 739              		.section	.text.HAL_UART_RxCpltCallback,"ax",%progbits
+ 740              		.align	1
+ 741              		.global	HAL_UART_RxCpltCallback
+ 742              		.syntax unified
+ 743              		.thumb
+ 744              		.thumb_func
+ 745              		.fpu softvfp
+ 747              	HAL_UART_RxCpltCallback:
+ 748              	.LFB71:
+ 260:Application/aPedals/aBle2UART.c **** 
+ 261:Application/aPedals/aBle2UART.c **** /**
+ 262:Application/aPedals/aBle2UART.c ****   * @brief  Rx Transfer completed callback
+ 263:Application/aPedals/aBle2UART.c ****   * @param  huart: UART handle
+ 264:Application/aPedals/aBle2UART.c ****   * @note   This example shows a simple way to report end of DMA Rx transfer, and
+ 265:Application/aPedals/aBle2UART.c ****   *         you can add your own implementation.
+ 266:Application/aPedals/aBle2UART.c ****   * @retval None
+ 267:Application/aPedals/aBle2UART.c ****   */
+ 268:Application/aPedals/aBle2UART.c **** void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+ 269:Application/aPedals/aBle2UART.c **** {
+ 749              		.loc 1 269 0
+ 750              		.cfi_startproc
+ 751              		@ args = 0, pretend = 0, frame = 8
+ARM GAS  /tmp/ccEMlEbr.s 			page 19
+
+
+ 752              		@ frame_needed = 1, uses_anonymous_args = 0
+ 753              		@ link register save eliminated.
+ 754 0000 80B4     		push	{r7}
+ 755              	.LCFI27:
+ 756              		.cfi_def_cfa_offset 4
+ 757              		.cfi_offset 7, -4
+ 758 0002 83B0     		sub	sp, sp, #12
+ 759              	.LCFI28:
+ 760              		.cfi_def_cfa_offset 16
+ 761 0004 00AF     		add	r7, sp, #0
+ 762              	.LCFI29:
+ 763              		.cfi_def_cfa_register 7
+ 764 0006 7860     		str	r0, [r7, #4]
+ 270:Application/aPedals/aBle2UART.c ****   evBleRx = 1u;
+ 765              		.loc 1 270 0
+ 766 0008 034B     		ldr	r3, .L42
+ 767 000a 0122     		movs	r2, #1
+ 768 000c 1A70     		strb	r2, [r3]
+ 271:Application/aPedals/aBle2UART.c **** }
+ 769              		.loc 1 271 0
+ 770 000e 00BF     		nop
+ 771 0010 0C37     		adds	r7, r7, #12
+ 772              	.LCFI30:
+ 773              		.cfi_def_cfa_offset 4
+ 774 0012 BD46     		mov	sp, r7
+ 775              	.LCFI31:
+ 776              		.cfi_def_cfa_register 13
+ 777              		@ sp needed
+ 778 0014 80BC     		pop	{r7}
+ 779              	.LCFI32:
+ 780              		.cfi_restore 7
+ 781              		.cfi_def_cfa_offset 0
+ 782 0016 7047     		bx	lr
+ 783              	.L43:
+ 784              		.align	2
+ 785              	.L42:
+ 786 0018 00000000 		.word	evBleRx
+ 787              		.cfi_endproc
+ 788              	.LFE71:
+ 790              		.section	.text.HAL_UART_ErrorCallback,"ax",%progbits
+ 791              		.align	1
+ 792              		.global	HAL_UART_ErrorCallback
+ 793              		.syntax unified
+ 794              		.thumb
+ 795              		.thumb_func
+ 796              		.fpu softvfp
+ 798              	HAL_UART_ErrorCallback:
+ 799              	.LFB72:
+ 272:Application/aPedals/aBle2UART.c **** 
+ 273:Application/aPedals/aBle2UART.c **** /**
+ 274:Application/aPedals/aBle2UART.c ****   * @brief  UART error callbacks
+ 275:Application/aPedals/aBle2UART.c ****   * @param  huart: UART handle
+ 276:Application/aPedals/aBle2UART.c ****   * @note   This example shows a simple way to report transfer error, and you can
+ 277:Application/aPedals/aBle2UART.c ****   *         add your own implementation.
+ 278:Application/aPedals/aBle2UART.c ****   * @retval None
+ 279:Application/aPedals/aBle2UART.c ****   */
+ 280:Application/aPedals/aBle2UART.c **** void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+ARM GAS  /tmp/ccEMlEbr.s 			page 20
+
+
+ 281:Application/aPedals/aBle2UART.c **** {
+ 800              		.loc 1 281 0
+ 801              		.cfi_startproc
+ 802              		@ args = 0, pretend = 0, frame = 8
+ 803              		@ frame_needed = 1, uses_anonymous_args = 0
+ 804              		@ link register save eliminated.
+ 805 0000 80B4     		push	{r7}
+ 806              	.LCFI33:
+ 807              		.cfi_def_cfa_offset 4
+ 808              		.cfi_offset 7, -4
+ 809 0002 83B0     		sub	sp, sp, #12
+ 810              	.LCFI34:
+ 811              		.cfi_def_cfa_offset 16
+ 812 0004 00AF     		add	r7, sp, #0
+ 813              	.LCFI35:
+ 814              		.cfi_def_cfa_register 7
+ 815 0006 7860     		str	r0, [r7, #4]
+ 282:Application/aPedals/aBle2UART.c ****     aleds_ledGreenStatus = ALEDS_LED_STATUS_BLINK;
+ 816              		.loc 1 282 0
+ 817 0008 034B     		ldr	r3, .L45
+ 818 000a 0222     		movs	r2, #2
+ 819 000c 1A70     		strb	r2, [r3]
+ 283:Application/aPedals/aBle2UART.c **** }
+ 820              		.loc 1 283 0
+ 821 000e 00BF     		nop
+ 822 0010 0C37     		adds	r7, r7, #12
+ 823              	.LCFI36:
+ 824              		.cfi_def_cfa_offset 4
+ 825 0012 BD46     		mov	sp, r7
+ 826              	.LCFI37:
+ 827              		.cfi_def_cfa_register 13
+ 828              		@ sp needed
+ 829 0014 80BC     		pop	{r7}
+ 830              	.LCFI38:
+ 831              		.cfi_restore 7
+ 832              		.cfi_def_cfa_offset 0
+ 833 0016 7047     		bx	lr
+ 834              	.L46:
+ 835              		.align	2
+ 836              	.L45:
+ 837 0018 00000000 		.word	aleds_ledGreenStatus
+ 838              		.cfi_endproc
+ 839              	.LFE72:
+ 841              		.section	.text.HAL_UART_MspInit,"ax",%progbits
+ 842              		.align	1
+ 843              		.global	HAL_UART_MspInit
+ 844              		.syntax unified
+ 845              		.thumb
+ 846              		.thumb_func
+ 847              		.fpu softvfp
+ 849              	HAL_UART_MspInit:
+ 850              	.LFB73:
+ 284:Application/aPedals/aBle2UART.c **** 
+ 285:Application/aPedals/aBle2UART.c **** 
+ 286:Application/aPedals/aBle2UART.c **** /** @defgroup HAL_MSP_Private_Functions
+ 287:Application/aPedals/aBle2UART.c ****   * @{
+ 288:Application/aPedals/aBle2UART.c ****   */
+ARM GAS  /tmp/ccEMlEbr.s 			page 21
+
+
+ 289:Application/aPedals/aBle2UART.c **** 
+ 290:Application/aPedals/aBle2UART.c **** /**
+ 291:Application/aPedals/aBle2UART.c ****   * @brief UART MSP Initialization
+ 292:Application/aPedals/aBle2UART.c ****   *        This function configures the hardware resources used in this example:
+ 293:Application/aPedals/aBle2UART.c ****   *           - Peripheral's clock enable
+ 294:Application/aPedals/aBle2UART.c ****   *           - Peripheral's GPIO Configuration
+ 295:Application/aPedals/aBle2UART.c ****   *           - DMA configuration for transmission request by peripheral
+ 296:Application/aPedals/aBle2UART.c ****   *           - NVIC configuration for DMA interrupt request enable
+ 297:Application/aPedals/aBle2UART.c ****   * @param huart: UART handle pointer
+ 298:Application/aPedals/aBle2UART.c ****   * @retval None
+ 299:Application/aPedals/aBle2UART.c ****   */
+ 300:Application/aPedals/aBle2UART.c **** void HAL_UART_MspInit(UART_HandleTypeDef *huart)
+ 301:Application/aPedals/aBle2UART.c **** {
+ 851              		.loc 1 301 0
+ 852              		.cfi_startproc
+ 853              		@ args = 0, pretend = 0, frame = 40
+ 854              		@ frame_needed = 1, uses_anonymous_args = 0
+ 855 0000 80B5     		push	{r7, lr}
+ 856              	.LCFI39:
+ 857              		.cfi_def_cfa_offset 8
+ 858              		.cfi_offset 7, -8
+ 859              		.cfi_offset 14, -4
+ 860 0002 8AB0     		sub	sp, sp, #40
+ 861              	.LCFI40:
+ 862              		.cfi_def_cfa_offset 48
+ 863 0004 00AF     		add	r7, sp, #0
+ 864              	.LCFI41:
+ 865              		.cfi_def_cfa_register 7
+ 866 0006 7860     		str	r0, [r7, #4]
+ 867              	.LBB4:
+ 302:Application/aPedals/aBle2UART.c ****   static DMA_HandleTypeDef hdma_tx;
+ 303:Application/aPedals/aBle2UART.c ****   static DMA_HandleTypeDef hdma_rx;
+ 304:Application/aPedals/aBle2UART.c **** 
+ 305:Application/aPedals/aBle2UART.c ****   GPIO_InitTypeDef  GPIO_InitStruct;
+ 306:Application/aPedals/aBle2UART.c **** 
+ 307:Application/aPedals/aBle2UART.c ****   /*##-1- Enable peripherals and GPIO Clocks #################################*/
+ 308:Application/aPedals/aBle2UART.c ****   /* Enable GPIO clock */
+ 309:Application/aPedals/aBle2UART.c ****   USARTx_TX_GPIO_CLK_ENABLE();
+ 868              		.loc 1 309 0
+ 869 0008 544B     		ldr	r3, .L48
+ 870 000a 9B69     		ldr	r3, [r3, #24]
+ 871 000c 534A     		ldr	r2, .L48
+ 872 000e 43F00403 		orr	r3, r3, #4
+ 873 0012 9361     		str	r3, [r2, #24]
+ 874 0014 514B     		ldr	r3, .L48
+ 875 0016 9B69     		ldr	r3, [r3, #24]
+ 876 0018 03F00403 		and	r3, r3, #4
+ 877 001c 7B61     		str	r3, [r7, #20]
+ 878 001e 7B69     		ldr	r3, [r7, #20]
+ 879              	.LBE4:
+ 880              	.LBB5:
+ 310:Application/aPedals/aBle2UART.c ****   USARTx_RX_GPIO_CLK_ENABLE();
+ 881              		.loc 1 310 0
+ 882 0020 4E4B     		ldr	r3, .L48
+ 883 0022 9B69     		ldr	r3, [r3, #24]
+ 884 0024 4D4A     		ldr	r2, .L48
+ 885 0026 43F00403 		orr	r3, r3, #4
+ARM GAS  /tmp/ccEMlEbr.s 			page 22
+
+
+ 886 002a 9361     		str	r3, [r2, #24]
+ 887 002c 4B4B     		ldr	r3, .L48
+ 888 002e 9B69     		ldr	r3, [r3, #24]
+ 889 0030 03F00403 		and	r3, r3, #4
+ 890 0034 3B61     		str	r3, [r7, #16]
+ 891 0036 3B69     		ldr	r3, [r7, #16]
+ 892              	.LBE5:
+ 893              	.LBB6:
+ 311:Application/aPedals/aBle2UART.c **** 
+ 312:Application/aPedals/aBle2UART.c **** 
+ 313:Application/aPedals/aBle2UART.c **** 
+ 314:Application/aPedals/aBle2UART.c ****   /* Enable USARTx clock */
+ 315:Application/aPedals/aBle2UART.c ****   USARTx_CLK_ENABLE();
+ 894              		.loc 1 315 0
+ 895 0038 484B     		ldr	r3, .L48
+ 896 003a 9B69     		ldr	r3, [r3, #24]
+ 897 003c 474A     		ldr	r2, .L48
+ 898 003e 43F48043 		orr	r3, r3, #16384
+ 899 0042 9361     		str	r3, [r2, #24]
+ 900 0044 454B     		ldr	r3, .L48
+ 901 0046 9B69     		ldr	r3, [r3, #24]
+ 902 0048 03F48043 		and	r3, r3, #16384
+ 903 004c FB60     		str	r3, [r7, #12]
+ 904 004e FB68     		ldr	r3, [r7, #12]
+ 905              	.LBE6:
+ 906              	.LBB7:
+ 316:Application/aPedals/aBle2UART.c **** 
+ 317:Application/aPedals/aBle2UART.c ****   /* Enable DMA clock */
+ 318:Application/aPedals/aBle2UART.c ****   DMAx_CLK_ENABLE();
+ 907              		.loc 1 318 0
+ 908 0050 424B     		ldr	r3, .L48
+ 909 0052 5B69     		ldr	r3, [r3, #20]
+ 910 0054 414A     		ldr	r2, .L48
+ 911 0056 43F00103 		orr	r3, r3, #1
+ 912 005a 5361     		str	r3, [r2, #20]
+ 913 005c 3F4B     		ldr	r3, .L48
+ 914 005e 5B69     		ldr	r3, [r3, #20]
+ 915 0060 03F00103 		and	r3, r3, #1
+ 916 0064 BB60     		str	r3, [r7, #8]
+ 917 0066 BB68     		ldr	r3, [r7, #8]
+ 918              	.LBE7:
+ 319:Application/aPedals/aBle2UART.c **** 
+ 320:Application/aPedals/aBle2UART.c ****   /*##-2- Configure peripheral GPIO ##########################################*/
+ 321:Application/aPedals/aBle2UART.c ****   /* UART TX GPIO pin configuration  */
+ 322:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Pin       = USARTx_TX_PIN;
+ 919              		.loc 1 322 0
+ 920 0068 4FF40073 		mov	r3, #512
+ 921 006c BB61     		str	r3, [r7, #24]
+ 323:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Mode      = GPIO_MODE_AF_PP;
+ 922              		.loc 1 323 0
+ 923 006e 0223     		movs	r3, #2
+ 924 0070 FB61     		str	r3, [r7, #28]
+ 324:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Pull      = GPIO_PULLUP;
+ 925              		.loc 1 324 0
+ 926 0072 0123     		movs	r3, #1
+ 927 0074 3B62     		str	r3, [r7, #32]
+ 325:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_HIGH;
+ARM GAS  /tmp/ccEMlEbr.s 			page 23
+
+
+ 928              		.loc 1 325 0
+ 929 0076 0323     		movs	r3, #3
+ 930 0078 7B62     		str	r3, [r7, #36]
+ 326:Application/aPedals/aBle2UART.c **** 
+ 327:Application/aPedals/aBle2UART.c ****   HAL_GPIO_Init(USARTx_TX_GPIO_PORT, &GPIO_InitStruct);
+ 931              		.loc 1 327 0
+ 932 007a 07F11803 		add	r3, r7, #24
+ 933 007e 1946     		mov	r1, r3
+ 934 0080 3748     		ldr	r0, .L48+4
+ 935 0082 FFF7FEFF 		bl	HAL_GPIO_Init
+ 328:Application/aPedals/aBle2UART.c **** 
+ 329:Application/aPedals/aBle2UART.c ****   /* UART RX GPIO pin configuration  */
+ 330:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Pin = USARTx_RX_PIN;
+ 936              		.loc 1 330 0
+ 937 0086 4FF48063 		mov	r3, #1024
+ 938 008a BB61     		str	r3, [r7, #24]
+ 331:Application/aPedals/aBle2UART.c ****   GPIO_InitStruct.Mode      = GPIO_MODE_INPUT;
+ 939              		.loc 1 331 0
+ 940 008c 0023     		movs	r3, #0
+ 941 008e FB61     		str	r3, [r7, #28]
+ 332:Application/aPedals/aBle2UART.c **** 
+ 333:Application/aPedals/aBle2UART.c ****   HAL_GPIO_Init(USARTx_RX_GPIO_PORT, &GPIO_InitStruct);
+ 942              		.loc 1 333 0
+ 943 0090 07F11803 		add	r3, r7, #24
+ 944 0094 1946     		mov	r1, r3
+ 945 0096 3248     		ldr	r0, .L48+4
+ 946 0098 FFF7FEFF 		bl	HAL_GPIO_Init
+ 334:Application/aPedals/aBle2UART.c **** 
+ 335:Application/aPedals/aBle2UART.c ****   /*##-3- Configure the DMA ##################################################*/
+ 336:Application/aPedals/aBle2UART.c ****   /* Configure the DMA handler for Transmission process */
+ 337:Application/aPedals/aBle2UART.c ****   hdma_tx.Instance                 = USARTx_TX_DMA_CHANNEL;
+ 947              		.loc 1 337 0
+ 948 009c 314B     		ldr	r3, .L48+8
+ 949 009e 324A     		ldr	r2, .L48+12
+ 950 00a0 1A60     		str	r2, [r3]
+ 338:Application/aPedals/aBle2UART.c ****   hdma_tx.Init.Direction           = DMA_MEMORY_TO_PERIPH;
+ 951              		.loc 1 338 0
+ 952 00a2 304B     		ldr	r3, .L48+8
+ 953 00a4 1022     		movs	r2, #16
+ 954 00a6 5A60     		str	r2, [r3, #4]
+ 339:Application/aPedals/aBle2UART.c ****   hdma_tx.Init.PeriphInc           = DMA_PINC_DISABLE;
+ 955              		.loc 1 339 0
+ 956 00a8 2E4B     		ldr	r3, .L48+8
+ 957 00aa 0022     		movs	r2, #0
+ 958 00ac 9A60     		str	r2, [r3, #8]
+ 340:Application/aPedals/aBle2UART.c ****   hdma_tx.Init.MemInc              = DMA_MINC_ENABLE;
+ 959              		.loc 1 340 0
+ 960 00ae 2D4B     		ldr	r3, .L48+8
+ 961 00b0 8022     		movs	r2, #128
+ 962 00b2 DA60     		str	r2, [r3, #12]
+ 341:Application/aPedals/aBle2UART.c ****   hdma_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+ 963              		.loc 1 341 0
+ 964 00b4 2B4B     		ldr	r3, .L48+8
+ 965 00b6 0022     		movs	r2, #0
+ 966 00b8 1A61     		str	r2, [r3, #16]
+ 342:Application/aPedals/aBle2UART.c ****   hdma_tx.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+ 967              		.loc 1 342 0
+ARM GAS  /tmp/ccEMlEbr.s 			page 24
+
+
+ 968 00ba 2A4B     		ldr	r3, .L48+8
+ 969 00bc 0022     		movs	r2, #0
+ 970 00be 5A61     		str	r2, [r3, #20]
+ 343:Application/aPedals/aBle2UART.c ****   hdma_tx.Init.Mode                = DMA_NORMAL;
+ 971              		.loc 1 343 0
+ 972 00c0 284B     		ldr	r3, .L48+8
+ 973 00c2 0022     		movs	r2, #0
+ 974 00c4 9A61     		str	r2, [r3, #24]
+ 344:Application/aPedals/aBle2UART.c ****   hdma_tx.Init.Priority            = DMA_PRIORITY_LOW;
+ 975              		.loc 1 344 0
+ 976 00c6 274B     		ldr	r3, .L48+8
+ 977 00c8 0022     		movs	r2, #0
+ 978 00ca DA61     		str	r2, [r3, #28]
+ 345:Application/aPedals/aBle2UART.c **** 
+ 346:Application/aPedals/aBle2UART.c ****   HAL_DMA_Init(&hdma_tx);
+ 979              		.loc 1 346 0
+ 980 00cc 2548     		ldr	r0, .L48+8
+ 981 00ce FFF7FEFF 		bl	HAL_DMA_Init
+ 347:Application/aPedals/aBle2UART.c **** 
+ 348:Application/aPedals/aBle2UART.c ****   /* Associate the initialized DMA handle to the UART handle */
+ 349:Application/aPedals/aBle2UART.c ****   __HAL_LINKDMA(huart, hdmatx, hdma_tx);
+ 982              		.loc 1 349 0
+ 983 00d2 7B68     		ldr	r3, [r7, #4]
+ 984 00d4 234A     		ldr	r2, .L48+8
+ 985 00d6 1A63     		str	r2, [r3, #48]
+ 986 00d8 224A     		ldr	r2, .L48+8
+ 987 00da 7B68     		ldr	r3, [r7, #4]
+ 988 00dc 5362     		str	r3, [r2, #36]
+ 350:Application/aPedals/aBle2UART.c **** 
+ 351:Application/aPedals/aBle2UART.c ****   /* Configure the DMA handler for reception process */
+ 352:Application/aPedals/aBle2UART.c ****   hdma_rx.Instance                 = USARTx_RX_DMA_CHANNEL;
+ 989              		.loc 1 352 0
+ 990 00de 234B     		ldr	r3, .L48+16
+ 991 00e0 234A     		ldr	r2, .L48+20
+ 992 00e2 1A60     		str	r2, [r3]
+ 353:Application/aPedals/aBle2UART.c ****   hdma_rx.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+ 993              		.loc 1 353 0
+ 994 00e4 214B     		ldr	r3, .L48+16
+ 995 00e6 0022     		movs	r2, #0
+ 996 00e8 5A60     		str	r2, [r3, #4]
+ 354:Application/aPedals/aBle2UART.c ****   hdma_rx.Init.PeriphInc           = DMA_PINC_DISABLE;
+ 997              		.loc 1 354 0
+ 998 00ea 204B     		ldr	r3, .L48+16
+ 999 00ec 0022     		movs	r2, #0
+ 1000 00ee 9A60     		str	r2, [r3, #8]
+ 355:Application/aPedals/aBle2UART.c ****   hdma_rx.Init.MemInc              = DMA_MINC_ENABLE;
+ 1001              		.loc 1 355 0
+ 1002 00f0 1E4B     		ldr	r3, .L48+16
+ 1003 00f2 8022     		movs	r2, #128
+ 1004 00f4 DA60     		str	r2, [r3, #12]
+ 356:Application/aPedals/aBle2UART.c ****   hdma_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+ 1005              		.loc 1 356 0
+ 1006 00f6 1D4B     		ldr	r3, .L48+16
+ 1007 00f8 0022     		movs	r2, #0
+ 1008 00fa 1A61     		str	r2, [r3, #16]
+ 357:Application/aPedals/aBle2UART.c ****   hdma_rx.Init.MemDataAlignment    = DMA_MDATAALIGN_BYTE;
+ 1009              		.loc 1 357 0
+ARM GAS  /tmp/ccEMlEbr.s 			page 25
+
+
+ 1010 00fc 1B4B     		ldr	r3, .L48+16
+ 1011 00fe 0022     		movs	r2, #0
+ 1012 0100 5A61     		str	r2, [r3, #20]
+ 358:Application/aPedals/aBle2UART.c ****   hdma_rx.Init.Mode                = DMA_NORMAL;
+ 1013              		.loc 1 358 0
+ 1014 0102 1A4B     		ldr	r3, .L48+16
+ 1015 0104 0022     		movs	r2, #0
+ 1016 0106 9A61     		str	r2, [r3, #24]
+ 359:Application/aPedals/aBle2UART.c ****   hdma_rx.Init.Priority            = DMA_PRIORITY_HIGH;
+ 1017              		.loc 1 359 0
+ 1018 0108 184B     		ldr	r3, .L48+16
+ 1019 010a 4FF40052 		mov	r2, #8192
+ 1020 010e DA61     		str	r2, [r3, #28]
+ 360:Application/aPedals/aBle2UART.c **** 
+ 361:Application/aPedals/aBle2UART.c ****   HAL_DMA_Init(&hdma_rx);
+ 1021              		.loc 1 361 0
+ 1022 0110 1648     		ldr	r0, .L48+16
+ 1023 0112 FFF7FEFF 		bl	HAL_DMA_Init
+ 362:Application/aPedals/aBle2UART.c **** 
+ 363:Application/aPedals/aBle2UART.c ****   /* Associate the initialized DMA handle to the the UART handle */
+ 364:Application/aPedals/aBle2UART.c ****   __HAL_LINKDMA(huart, hdmarx, hdma_rx);
+ 1024              		.loc 1 364 0
+ 1025 0116 7B68     		ldr	r3, [r7, #4]
+ 1026 0118 144A     		ldr	r2, .L48+16
+ 1027 011a 5A63     		str	r2, [r3, #52]
+ 1028 011c 134A     		ldr	r2, .L48+16
+ 1029 011e 7B68     		ldr	r3, [r7, #4]
+ 1030 0120 5362     		str	r3, [r2, #36]
+ 365:Application/aPedals/aBle2UART.c **** 
+ 366:Application/aPedals/aBle2UART.c ****   /*##-4- Configure the NVIC for DMA #########################################*/
+ 367:Application/aPedals/aBle2UART.c ****   /* NVIC configuration for DMA transfer complete interrupt (USARTx_TX) */
+ 368:Application/aPedals/aBle2UART.c ****   HAL_NVIC_SetPriority(USARTx_DMA_TX_IRQn, 0, 1);
+ 1031              		.loc 1 368 0
+ 1032 0122 0122     		movs	r2, #1
+ 1033 0124 0021     		movs	r1, #0
+ 1034 0126 0E20     		movs	r0, #14
+ 1035 0128 FFF7FEFF 		bl	HAL_NVIC_SetPriority
+ 369:Application/aPedals/aBle2UART.c ****   HAL_NVIC_EnableIRQ(USARTx_DMA_TX_IRQn);
+ 1036              		.loc 1 369 0
+ 1037 012c 0E20     		movs	r0, #14
+ 1038 012e FFF7FEFF 		bl	HAL_NVIC_EnableIRQ
+ 370:Application/aPedals/aBle2UART.c **** 
+ 371:Application/aPedals/aBle2UART.c ****   /* NVIC configuration for DMA transfer complete interrupt (USARTx_RX) */
+ 372:Application/aPedals/aBle2UART.c ****   HAL_NVIC_SetPriority(USARTx_DMA_RX_IRQn, 0, 0);
+ 1039              		.loc 1 372 0
+ 1040 0132 0022     		movs	r2, #0
+ 1041 0134 0021     		movs	r1, #0
+ 1042 0136 0F20     		movs	r0, #15
+ 1043 0138 FFF7FEFF 		bl	HAL_NVIC_SetPriority
+ 373:Application/aPedals/aBle2UART.c ****   HAL_NVIC_EnableIRQ(USARTx_DMA_RX_IRQn);
+ 1044              		.loc 1 373 0
+ 1045 013c 0F20     		movs	r0, #15
+ 1046 013e FFF7FEFF 		bl	HAL_NVIC_EnableIRQ
+ 374:Application/aPedals/aBle2UART.c **** 
+ 375:Application/aPedals/aBle2UART.c ****   /* NVIC configuration for USART, to catch the TX complete */
+ 376:Application/aPedals/aBle2UART.c ****   HAL_NVIC_SetPriority(USARTx_IRQn, 0, 1);
+ 1047              		.loc 1 376 0
+ARM GAS  /tmp/ccEMlEbr.s 			page 26
+
+
+ 1048 0142 0122     		movs	r2, #1
+ 1049 0144 0021     		movs	r1, #0
+ 1050 0146 2520     		movs	r0, #37
+ 1051 0148 FFF7FEFF 		bl	HAL_NVIC_SetPriority
+ 377:Application/aPedals/aBle2UART.c ****   HAL_NVIC_EnableIRQ(USARTx_IRQn);
+ 1052              		.loc 1 377 0
+ 1053 014c 2520     		movs	r0, #37
+ 1054 014e FFF7FEFF 		bl	HAL_NVIC_EnableIRQ
+ 378:Application/aPedals/aBle2UART.c **** }
+ 1055              		.loc 1 378 0
+ 1056 0152 00BF     		nop
+ 1057 0154 2837     		adds	r7, r7, #40
+ 1058              	.LCFI42:
+ 1059              		.cfi_def_cfa_offset 8
+ 1060 0156 BD46     		mov	sp, r7
+ 1061              	.LCFI43:
+ 1062              		.cfi_def_cfa_register 13
+ 1063              		@ sp needed
+ 1064 0158 80BD     		pop	{r7, pc}
+ 1065              	.L49:
+ 1066 015a 00BF     		.align	2
+ 1067              	.L48:
+ 1068 015c 00100240 		.word	1073876992
+ 1069 0160 00080140 		.word	1073809408
+ 1070 0164 00000000 		.word	hdma_tx.7419
+ 1071 0168 44000240 		.word	1073872964
+ 1072 016c 00000000 		.word	hdma_rx.7420
+ 1073 0170 58000240 		.word	1073872984
+ 1074              		.cfi_endproc
+ 1075              	.LFE73:
+ 1077              		.section	.text.HAL_UART_MspDeInit,"ax",%progbits
+ 1078              		.align	1
+ 1079              		.global	HAL_UART_MspDeInit
+ 1080              		.syntax unified
+ 1081              		.thumb
+ 1082              		.thumb_func
+ 1083              		.fpu softvfp
+ 1085              	HAL_UART_MspDeInit:
+ 1086              	.LFB74:
+ 379:Application/aPedals/aBle2UART.c **** 
+ 380:Application/aPedals/aBle2UART.c **** /**
+ 381:Application/aPedals/aBle2UART.c ****   * @brief UART MSP De-Initialization
+ 382:Application/aPedals/aBle2UART.c ****   *        This function frees the hardware resources used in this example:
+ 383:Application/aPedals/aBle2UART.c ****   *          - Disable the Peripheral's clock
+ 384:Application/aPedals/aBle2UART.c ****   *          - Revert GPIO, DMA and NVIC configuration to their default state
+ 385:Application/aPedals/aBle2UART.c ****   * @param huart: UART handle pointer
+ 386:Application/aPedals/aBle2UART.c ****   * @retval None
+ 387:Application/aPedals/aBle2UART.c ****   */
+ 388:Application/aPedals/aBle2UART.c **** void HAL_UART_MspDeInit(UART_HandleTypeDef *huart)
+ 389:Application/aPedals/aBle2UART.c **** {
+ 1087              		.loc 1 389 0
+ 1088              		.cfi_startproc
+ 1089              		@ args = 0, pretend = 0, frame = 8
+ 1090              		@ frame_needed = 1, uses_anonymous_args = 0
+ 1091 0000 80B5     		push	{r7, lr}
+ 1092              	.LCFI44:
+ 1093              		.cfi_def_cfa_offset 8
+ARM GAS  /tmp/ccEMlEbr.s 			page 27
+
+
+ 1094              		.cfi_offset 7, -8
+ 1095              		.cfi_offset 14, -4
+ 1096 0002 82B0     		sub	sp, sp, #8
+ 1097              	.LCFI45:
+ 1098              		.cfi_def_cfa_offset 16
+ 1099 0004 00AF     		add	r7, sp, #0
+ 1100              	.LCFI46:
+ 1101              		.cfi_def_cfa_register 7
+ 1102 0006 7860     		str	r0, [r7, #4]
+ 390:Application/aPedals/aBle2UART.c **** 
+ 391:Application/aPedals/aBle2UART.c ****   static DMA_HandleTypeDef hdma_tx;
+ 392:Application/aPedals/aBle2UART.c ****   static DMA_HandleTypeDef hdma_rx;
+ 393:Application/aPedals/aBle2UART.c **** 
+ 394:Application/aPedals/aBle2UART.c ****   /*##-1- Reset peripherals ##################################################*/
+ 395:Application/aPedals/aBle2UART.c ****   USARTx_FORCE_RESET();
+ 1103              		.loc 1 395 0
+ 1104 0008 124B     		ldr	r3, .L51
+ 1105 000a DB68     		ldr	r3, [r3, #12]
+ 1106 000c 114A     		ldr	r2, .L51
+ 1107 000e 43F48043 		orr	r3, r3, #16384
+ 1108 0012 D360     		str	r3, [r2, #12]
+ 396:Application/aPedals/aBle2UART.c ****   USARTx_RELEASE_RESET();
+ 1109              		.loc 1 396 0
+ 1110 0014 0F4B     		ldr	r3, .L51
+ 1111 0016 DB68     		ldr	r3, [r3, #12]
+ 1112 0018 0E4A     		ldr	r2, .L51
+ 1113 001a 23F48043 		bic	r3, r3, #16384
+ 1114 001e D360     		str	r3, [r2, #12]
+ 397:Application/aPedals/aBle2UART.c **** 
+ 398:Application/aPedals/aBle2UART.c ****   /*##-2- Disable peripherals and GPIO Clocks ################################*/
+ 399:Application/aPedals/aBle2UART.c ****   /* Configure UART Tx as alternate function  */
+ 400:Application/aPedals/aBle2UART.c ****   HAL_GPIO_DeInit(USARTx_TX_GPIO_PORT, USARTx_TX_PIN);
+ 1115              		.loc 1 400 0
+ 1116 0020 4FF40071 		mov	r1, #512
+ 1117 0024 0C48     		ldr	r0, .L51+4
+ 1118 0026 FFF7FEFF 		bl	HAL_GPIO_DeInit
+ 401:Application/aPedals/aBle2UART.c ****   /* Configure UART Rx as alternate function  */
+ 402:Application/aPedals/aBle2UART.c ****   HAL_GPIO_DeInit(USARTx_RX_GPIO_PORT, USARTx_RX_PIN);
+ 1119              		.loc 1 402 0
+ 1120 002a 4FF48061 		mov	r1, #1024
+ 1121 002e 0A48     		ldr	r0, .L51+4
+ 1122 0030 FFF7FEFF 		bl	HAL_GPIO_DeInit
+ 403:Application/aPedals/aBle2UART.c ****   
+ 404:Application/aPedals/aBle2UART.c ****   /*##-3- Disable the DMA Channels ###########################################*/
+ 405:Application/aPedals/aBle2UART.c ****   /* De-Initialize the DMA Channel associated to transmission process */
+ 406:Application/aPedals/aBle2UART.c ****   HAL_DMA_DeInit(&hdma_tx);
+ 1123              		.loc 1 406 0
+ 1124 0034 0948     		ldr	r0, .L51+8
+ 1125 0036 FFF7FEFF 		bl	HAL_DMA_DeInit
+ 407:Application/aPedals/aBle2UART.c ****   /* De-Initialize the DMA Channel associated to reception process */
+ 408:Application/aPedals/aBle2UART.c ****   HAL_DMA_DeInit(&hdma_rx);
+ 1126              		.loc 1 408 0
+ 1127 003a 0948     		ldr	r0, .L51+12
+ 1128 003c FFF7FEFF 		bl	HAL_DMA_DeInit
+ 409:Application/aPedals/aBle2UART.c **** 
+ 410:Application/aPedals/aBle2UART.c ****   /*##-4- Disable the NVIC for DMA ###########################################*/
+ 411:Application/aPedals/aBle2UART.c ****   HAL_NVIC_DisableIRQ(USARTx_DMA_TX_IRQn);
+ARM GAS  /tmp/ccEMlEbr.s 			page 28
+
+
+ 1129              		.loc 1 411 0
+ 1130 0040 0E20     		movs	r0, #14
+ 1131 0042 FFF7FEFF 		bl	HAL_NVIC_DisableIRQ
+ 412:Application/aPedals/aBle2UART.c ****   HAL_NVIC_DisableIRQ(USARTx_DMA_RX_IRQn);
+ 1132              		.loc 1 412 0
+ 1133 0046 0F20     		movs	r0, #15
+ 1134 0048 FFF7FEFF 		bl	HAL_NVIC_DisableIRQ
+ 413:Application/aPedals/aBle2UART.c **** }
+ 1135              		.loc 1 413 0
+ 1136 004c 00BF     		nop
+ 1137 004e 0837     		adds	r7, r7, #8
+ 1138              	.LCFI47:
+ 1139              		.cfi_def_cfa_offset 8
+ 1140 0050 BD46     		mov	sp, r7
+ 1141              	.LCFI48:
+ 1142              		.cfi_def_cfa_register 13
+ 1143              		@ sp needed
+ 1144 0052 80BD     		pop	{r7, pc}
+ 1145              	.L52:
+ 1146              		.align	2
+ 1147              	.L51:
+ 1148 0054 00100240 		.word	1073876992
+ 1149 0058 00080140 		.word	1073809408
+ 1150 005c 00000000 		.word	hdma_tx.7429
+ 1151 0060 00000000 		.word	hdma_rx.7430
+ 1152              		.cfi_endproc
+ 1153              	.LFE74:
+ 1155              		.section	.bss.hdma_tx.7419,"aw",%nobits
+ 1156              		.align	2
+ 1159              	hdma_tx.7419:
+ 1160 0000 00000000 		.space	68
+ 1160      00000000 
+ 1160      00000000 
+ 1160      00000000 
+ 1160      00000000 
+ 1161              		.section	.bss.hdma_rx.7420,"aw",%nobits
+ 1162              		.align	2
+ 1165              	hdma_rx.7420:
+ 1166 0000 00000000 		.space	68
+ 1166      00000000 
+ 1166      00000000 
+ 1166      00000000 
+ 1166      00000000 
+ 1167              		.section	.bss.hdma_tx.7429,"aw",%nobits
+ 1168              		.align	2
+ 1171              	hdma_tx.7429:
+ 1172 0000 00000000 		.space	68
+ 1172      00000000 
+ 1172      00000000 
+ 1172      00000000 
+ 1172      00000000 
+ 1173              		.section	.bss.hdma_rx.7430,"aw",%nobits
+ 1174              		.align	2
+ 1177              	hdma_rx.7430:
+ 1178 0000 00000000 		.space	68
+ 1178      00000000 
+ 1178      00000000 
+ARM GAS  /tmp/ccEMlEbr.s 			page 29
+
+
+ 1178      00000000 
+ 1178      00000000 
+ 1179              		.text
+ 1180              	.Letext0:
+ 1181              		.file 2 "/usr/include/newlib/machine/_default_types.h"
+ 1182              		.file 3 "/usr/include/newlib/sys/_stdint.h"
+ 1183              		.file 4 "Drivers/CMSIS/Include/core_cm3.h"
+ 1184              		.file 5 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h"
+ 1185              		.file 6 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h"
+ 1186              		.file 7 "/usr/include/newlib/sys/lock.h"
+ 1187              		.file 8 "/usr/include/newlib/sys/_types.h"
+ 1188              		.file 9 "/usr/lib/gcc/arm-none-eabi/7.3.1/include/stddef.h"
+ 1189              		.file 10 "/usr/include/newlib/sys/reent.h"
+ 1190              		.file 11 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h"
+ 1191              		.file 12 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio.h"
+ 1192              		.file 13 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma.h"
+ 1193              		.file 14 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h"
+ 1194              		.file 15 "Scheduler/aSchTT_types.h"
+ 1195              		.file 16 "Application/aLeds/aleds.h"
+ARM GAS  /tmp/ccEMlEbr.s 			page 30
+
+
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 aBle2UART.c
+                            *COM*:0000000000000040 UartHandle
+     /tmp/ccEMlEbr.s:21     .rodata.bleSetupScript:0000000000000000 bleSetupScript
+     /tmp/ccEMlEbr.s:18     .rodata.bleSetupScript:0000000000000000 $d
+     /tmp/ccEMlEbr.s:24     .bss.aTxBuffer:0000000000000000 $d
+     /tmp/ccEMlEbr.s:27     .bss.aTxBuffer:0000000000000000 aTxBuffer
+     /tmp/ccEMlEbr.s:30     .bss.aRxBuffer:0000000000000000 $d
+     /tmp/ccEMlEbr.s:33     .bss.aRxBuffer:0000000000000000 aRxBuffer
+     /tmp/ccEMlEbr.s:38     .bss.cmdLength:0000000000000000 cmdLength
+     /tmp/ccEMlEbr.s:39     .bss.cmdLength:0000000000000000 $d
+                            *COM*:0000000000000001 sIdx
+                            *COM*:0000000000000001 evBleRx
+                            *COM*:0000000000000001 evTimeout
+                            *COM*:0000000000000002 bleTim
+                            *COM*:0000000000000001 aBleState
+     /tmp/ccEMlEbr.s:46     .rodata:0000000000000000 $d
+     /tmp/ccEMlEbr.s:50     .text.aBle2UART_init:0000000000000000 $t
+     /tmp/ccEMlEbr.s:57     .text.aBle2UART_init:0000000000000000 aBle2UART_init
+     /tmp/ccEMlEbr.s:186    .text.aBle2UART_init:00000000000000b8 $d
+     /tmp/ccEMlEbr.s:201    .text.aBle2UART_Setup:0000000000000000 $t
+     /tmp/ccEMlEbr.s:207    .text.aBle2UART_Setup:0000000000000000 aBle2UART_Setup
+     /tmp/ccEMlEbr.s:321    .text.aBle2UART_Setup:00000000000000a4 $d
+     /tmp/ccEMlEbr.s:331    .text.aBleAsyncTask:0000000000000000 $t
+     /tmp/ccEMlEbr.s:338    .text.aBleAsyncTask:0000000000000000 aBleAsyncTask
+     /tmp/ccEMlEbr.s:364    .text.aBleAsyncTask:0000000000000018 $d
+     /tmp/ccEMlEbr.s:369    .text.aBleAsyncTask:000000000000002c $t
+     /tmp/ccEMlEbr.s:605    .text.aBleAsyncTask:000000000000018c $d
+     /tmp/ccEMlEbr.s:620    .text.aBlePerTask:0000000000000000 $t
+     /tmp/ccEMlEbr.s:627    .text.aBlePerTask:0000000000000000 aBlePerTask
+     /tmp/ccEMlEbr.s:691    .text.aBlePerTask:0000000000000044 $d
+     /tmp/ccEMlEbr.s:697    .text.HAL_UART_TxCpltCallback:0000000000000000 $t
+     /tmp/ccEMlEbr.s:704    .text.HAL_UART_TxCpltCallback:0000000000000000 HAL_UART_TxCpltCallback
+     /tmp/ccEMlEbr.s:740    .text.HAL_UART_RxCpltCallback:0000000000000000 $t
+     /tmp/ccEMlEbr.s:747    .text.HAL_UART_RxCpltCallback:0000000000000000 HAL_UART_RxCpltCallback
+     /tmp/ccEMlEbr.s:786    .text.HAL_UART_RxCpltCallback:0000000000000018 $d
+     /tmp/ccEMlEbr.s:791    .text.HAL_UART_ErrorCallback:0000000000000000 $t
+     /tmp/ccEMlEbr.s:798    .text.HAL_UART_ErrorCallback:0000000000000000 HAL_UART_ErrorCallback
+     /tmp/ccEMlEbr.s:837    .text.HAL_UART_ErrorCallback:0000000000000018 $d
+     /tmp/ccEMlEbr.s:842    .text.HAL_UART_MspInit:0000000000000000 $t
+     /tmp/ccEMlEbr.s:849    .text.HAL_UART_MspInit:0000000000000000 HAL_UART_MspInit
+     /tmp/ccEMlEbr.s:1068   .text.HAL_UART_MspInit:000000000000015c $d
+     /tmp/ccEMlEbr.s:1159   .bss.hdma_tx.7419:0000000000000000 hdma_tx.7419
+     /tmp/ccEMlEbr.s:1165   .bss.hdma_rx.7420:0000000000000000 hdma_rx.7420
+     /tmp/ccEMlEbr.s:1078   .text.HAL_UART_MspDeInit:0000000000000000 $t
+     /tmp/ccEMlEbr.s:1085   .text.HAL_UART_MspDeInit:0000000000000000 HAL_UART_MspDeInit
+     /tmp/ccEMlEbr.s:1148   .text.HAL_UART_MspDeInit:0000000000000054 $d
+     /tmp/ccEMlEbr.s:1171   .bss.hdma_tx.7429:0000000000000000 hdma_tx.7429
+     /tmp/ccEMlEbr.s:1177   .bss.hdma_rx.7430:0000000000000000 hdma_rx.7430
+     /tmp/ccEMlEbr.s:1156   .bss.hdma_tx.7419:0000000000000000 $d
+     /tmp/ccEMlEbr.s:1162   .bss.hdma_rx.7420:0000000000000000 $d
+     /tmp/ccEMlEbr.s:1168   .bss.hdma_tx.7429:0000000000000000 $d
+     /tmp/ccEMlEbr.s:1174   .bss.hdma_rx.7430:0000000000000000 $d
+
+UNDEFINED SYMBOLS
+HAL_GPIO_WritePin
+HAL_GPIO_Init
+ARM GAS  /tmp/ccEMlEbr.s 			page 31
+
+
+HAL_UART_Init
+_Error_Handler
+HAL_UART_Transmit_DMA
+HAL_UART_Receive_DMA
+apedals_StoreNewValues
+aleds_ledGreenStatus
+HAL_DMA_Init
+HAL_NVIC_SetPriority
+HAL_NVIC_EnableIRQ
+HAL_GPIO_DeInit
+HAL_DMA_DeInit
+HAL_NVIC_DisableIRQ

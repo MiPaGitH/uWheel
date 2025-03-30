@@ -1,0 +1,207 @@
+ARM GAS  /tmp/cc51TGKJ.s 			page 1
+
+
+   1              		.cpu cortex-m3
+   2              		.eabi_attribute 20, 1
+   3              		.eabi_attribute 21, 1
+   4              		.eabi_attribute 23, 3
+   5              		.eabi_attribute 24, 1
+   6              		.eabi_attribute 25, 1
+   7              		.eabi_attribute 26, 1
+   8              		.eabi_attribute 30, 6
+   9              		.eabi_attribute 34, 1
+  10              		.eabi_attribute 18, 4
+  11              		.file	"spi.c"
+  12              		.text
+  13              	.Ltext0:
+  14              		.cfi_sections	.debug_frame
+  15              		.section	.text.MX_SPI2_Init,"ax",%progbits
+  16              		.align	1
+  17              		.global	MX_SPI2_Init
+  18              		.syntax unified
+  19              		.thumb
+  20              		.thumb_func
+  21              		.fpu softvfp
+  23              	MX_SPI2_Init:
+  24              	.LFB122:
+  25              		.file 1 "Src/spi.c"
+   1:Src/spi.c     **** /**
+   2:Src/spi.c     ****   ******************************************************************************
+   3:Src/spi.c     ****   * File Name          : SPI.c
+   4:Src/spi.c     ****   * Description        : This file provides code for the configuration
+   5:Src/spi.c     ****   *                      of the SPI instances.
+   6:Src/spi.c     ****   ******************************************************************************
+   7:Src/spi.c     ****   * This notice applies to any and all portions of this file
+   8:Src/spi.c     ****   * that are not between comment pairs USER CODE BEGIN and
+   9:Src/spi.c     ****   * USER CODE END. Other portions of this file, whether 
+  10:Src/spi.c     ****   * inserted by the user or by software development tools
+  11:Src/spi.c     ****   * are owned by their respective copyright owners.
+  12:Src/spi.c     ****   *
+  13:Src/spi.c     ****   * Copyright (c) 2020 STMicroelectronics International N.V. 
+  14:Src/spi.c     ****   * All rights reserved.
+  15:Src/spi.c     ****   *
+  16:Src/spi.c     ****   * Redistribution and use in source and binary forms, with or without 
+  17:Src/spi.c     ****   * modification, are permitted, provided that the following conditions are met:
+  18:Src/spi.c     ****   *
+  19:Src/spi.c     ****   * 1. Redistribution of source code must retain the above copyright notice, 
+  20:Src/spi.c     ****   *    this list of conditions and the following disclaimer.
+  21:Src/spi.c     ****   * 2. Redistributions in binary form must reproduce the above copyright notice,
+  22:Src/spi.c     ****   *    this list of conditions and the following disclaimer in the documentation
+  23:Src/spi.c     ****   *    and/or other materials provided with the distribution.
+  24:Src/spi.c     ****   * 3. Neither the name of STMicroelectronics nor the names of other 
+  25:Src/spi.c     ****   *    contributors to this software may be used to endorse or promote products 
+  26:Src/spi.c     ****   *    derived from this software without specific written permission.
+  27:Src/spi.c     ****   * 4. This software, including modifications and/or derivative works of this 
+  28:Src/spi.c     ****   *    software, must execute solely and exclusively on microcontroller or
+  29:Src/spi.c     ****   *    microprocessor devices manufactured by or for STMicroelectronics.
+  30:Src/spi.c     ****   * 5. Redistribution and use of this software other than as permitted under 
+  31:Src/spi.c     ****   *    this license is void and will automatically terminate your rights under 
+  32:Src/spi.c     ****   *    this license. 
+  33:Src/spi.c     ****   *
+ARM GAS  /tmp/cc51TGKJ.s 			page 2
+
+
+  34:Src/spi.c     ****   * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
+  35:Src/spi.c     ****   * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
+  36:Src/spi.c     ****   * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+  37:Src/spi.c     ****   * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
+  38:Src/spi.c     ****   * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
+  39:Src/spi.c     ****   * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  40:Src/spi.c     ****   * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  41:Src/spi.c     ****   * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
+  42:Src/spi.c     ****   * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
+  43:Src/spi.c     ****   * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+  44:Src/spi.c     ****   * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  45:Src/spi.c     ****   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  46:Src/spi.c     ****   *
+  47:Src/spi.c     ****   ******************************************************************************
+  48:Src/spi.c     ****   */
+  49:Src/spi.c     **** 
+  50:Src/spi.c     **** /* Includes ------------------------------------------------------------------*/
+  51:Src/spi.c     **** #include "stm32f1xx_ll_spi.h"
+  52:Src/spi.c     **** #include "spi.h"
+  53:Src/spi.c     **** 
+  54:Src/spi.c     **** /* USER CODE BEGIN 0 */
+  55:Src/spi.c     **** 
+  56:Src/spi.c     **** /* USER CODE END 0 */
+  57:Src/spi.c     **** 
+  58:Src/spi.c     **** /* SPI2 init function */
+  59:Src/spi.c     **** void MX_SPI2_Init(void)
+  60:Src/spi.c     **** {
+  26              		.loc 1 60 0
+  27              		.cfi_startproc
+  28              		@ args = 0, pretend = 0, frame = 40
+  29              		@ frame_needed = 1, uses_anonymous_args = 0
+  30 0000 80B5     		push	{r7, lr}
+  31              	.LCFI0:
+  32              		.cfi_def_cfa_offset 8
+  33              		.cfi_offset 7, -8
+  34              		.cfi_offset 14, -4
+  35 0002 8AB0     		sub	sp, sp, #40
+  36              	.LCFI1:
+  37              		.cfi_def_cfa_offset 48
+  38 0004 00AF     		add	r7, sp, #0
+  39              	.LCFI2:
+  40              		.cfi_def_cfa_register 7
+  61:Src/spi.c     ****   LL_SPI_InitTypeDef SPI_InitStruct = {0};
+  41              		.loc 1 61 0
+  42 0006 3B46     		mov	r3, r7
+  43 0008 2822     		movs	r2, #40
+  44 000a 0021     		movs	r1, #0
+  45 000c 1846     		mov	r0, r3
+  46 000e FFF7FEFF 		bl	memset
+  62:Src/spi.c     **** 
+  63:Src/spi.c     ****   SPI_InitStruct.TransferDirection = LL_SPI_SIMPLEX_RX;
+  47              		.loc 1 63 0
+  48 0012 4FF48063 		mov	r3, #1024
+  49 0016 3B60     		str	r3, [r7]
+  64:Src/spi.c     ****   SPI_InitStruct.Mode = LL_SPI_MODE_MASTER;
+  50              		.loc 1 64 0
+  51 0018 4FF48273 		mov	r3, #260
+ARM GAS  /tmp/cc51TGKJ.s 			page 3
+
+
+  52 001c 7B60     		str	r3, [r7, #4]
+  65:Src/spi.c     ****   SPI_InitStruct.DataWidth = LL_SPI_DATAWIDTH_16BIT;
+  53              		.loc 1 65 0
+  54 001e 4FF40063 		mov	r3, #2048
+  55 0022 BB60     		str	r3, [r7, #8]
+  66:Src/spi.c     ****   SPI_InitStruct.ClockPolarity = LL_SPI_POLARITY_HIGH;
+  56              		.loc 1 66 0
+  57 0024 0223     		movs	r3, #2
+  58 0026 FB60     		str	r3, [r7, #12]
+  67:Src/spi.c     ****   SPI_InitStruct.ClockPhase = LL_SPI_PHASE_1EDGE;
+  59              		.loc 1 67 0
+  60 0028 0023     		movs	r3, #0
+  61 002a 3B61     		str	r3, [r7, #16]
+  68:Src/spi.c     ****   SPI_InitStruct.NSS = LL_SPI_NSS_SOFT;
+  62              		.loc 1 68 0
+  63 002c 4FF40073 		mov	r3, #512
+  64 0030 7B61     		str	r3, [r7, #20]
+  69:Src/spi.c     ****   SPI_InitStruct.BaudRate = LL_SPI_BAUDRATEPRESCALER_DIV64; /*562.5 kBit/s*/
+  65              		.loc 1 69 0
+  66 0032 2823     		movs	r3, #40
+  67 0034 BB61     		str	r3, [r7, #24]
+  70:Src/spi.c     ****   SPI_InitStruct.BitOrder = LL_SPI_MSB_FIRST;
+  68              		.loc 1 70 0
+  69 0036 0023     		movs	r3, #0
+  70 0038 FB61     		str	r3, [r7, #28]
+  71:Src/spi.c     ****   SPI_InitStruct.CRCCalculation = LL_SPI_CRCCALCULATION_DISABLE;
+  71              		.loc 1 71 0
+  72 003a 0023     		movs	r3, #0
+  73 003c 3B62     		str	r3, [r7, #32]
+  72:Src/spi.c     ****   SPI_InitStruct.CRCPoly = 10;
+  74              		.loc 1 72 0
+  75 003e 0A23     		movs	r3, #10
+  76 0040 7B62     		str	r3, [r7, #36]
+  73:Src/spi.c     ****   LL_SPI_Init(SPI2, &SPI_InitStruct);
+  77              		.loc 1 73 0
+  78 0042 3B46     		mov	r3, r7
+  79 0044 1946     		mov	r1, r3
+  80 0046 0348     		ldr	r0, .L2
+  81 0048 FFF7FEFF 		bl	LL_SPI_Init
+  74:Src/spi.c     **** 
+  75:Src/spi.c     **** }
+  82              		.loc 1 75 0
+  83 004c 00BF     		nop
+  84 004e 2837     		adds	r7, r7, #40
+  85              	.LCFI3:
+  86              		.cfi_def_cfa_offset 8
+  87 0050 BD46     		mov	sp, r7
+  88              	.LCFI4:
+  89              		.cfi_def_cfa_register 13
+  90              		@ sp needed
+  91 0052 80BD     		pop	{r7, pc}
+  92              	.L3:
+  93              		.align	2
+  94              	.L2:
+  95 0054 00380040 		.word	1073756160
+  96              		.cfi_endproc
+  97              	.LFE122:
+ARM GAS  /tmp/cc51TGKJ.s 			page 4
+
+
+  99              		.text
+ 100              	.Letext0:
+ 101              		.file 2 "/usr/include/newlib/machine/_default_types.h"
+ 102              		.file 3 "/usr/include/newlib/sys/_stdint.h"
+ 103              		.file 4 "Drivers/CMSIS/Include/core_cm3.h"
+ 104              		.file 5 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h"
+ 105              		.file 6 "Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h"
+ 106              		.file 7 "/usr/include/newlib/sys/lock.h"
+ 107              		.file 8 "/usr/include/newlib/sys/_types.h"
+ 108              		.file 9 "/usr/lib/gcc/arm-none-eabi/7.3.1/include/stddef.h"
+ 109              		.file 10 "/usr/include/newlib/sys/reent.h"
+ 110              		.file 11 "Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_spi.h"
+ARM GAS  /tmp/cc51TGKJ.s 			page 5
+
+
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 spi.c
+     /tmp/cc51TGKJ.s:16     .text.MX_SPI2_Init:0000000000000000 $t
+     /tmp/cc51TGKJ.s:23     .text.MX_SPI2_Init:0000000000000000 MX_SPI2_Init
+     /tmp/cc51TGKJ.s:95     .text.MX_SPI2_Init:0000000000000054 $d
+
+UNDEFINED SYMBOLS
+memset
+LL_SPI_Init
